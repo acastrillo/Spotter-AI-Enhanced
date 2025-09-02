@@ -1,6 +1,5 @@
 "use client"
 
-import { useAuthStore } from "@/store"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
 import { MobileNav } from "@/components/layout/mobile-nav"
@@ -17,11 +16,13 @@ import {
   Award
 } from "lucide-react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 
 export default function HomePage() {
-  const { isAuthenticated, user } = useAuthStore()
+  const { data: session } = useSession()
+  const user = session?.user
 
-  if (!isAuthenticated) {
+  if (!session) {
     return <Login />
   }
 
@@ -82,7 +83,7 @@ export default function HomePage() {
           {/* Welcome Section */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-text-primary mb-2">
-              Welcome back, {user?.firstName || "there"}!
+              Welcome back, {user?.name || user?.email?.split("@")[0] || "there"}!
             </h1>
             <p className="text-text-secondary">
               Ready to crush your fitness goals today?

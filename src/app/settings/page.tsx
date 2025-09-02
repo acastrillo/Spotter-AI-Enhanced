@@ -1,16 +1,17 @@
 "use client"
 
-import { useAuthStore } from "@/store"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Settings } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 export default function SettingsPage() {
-  const { isAuthenticated, user } = useAuthStore()
+  const { data: session } = useSession()
+  const user = session?.user
 
-  if (!isAuthenticated) {
+  if (!session) {
     return <Login />
   }
 
@@ -45,7 +46,7 @@ export default function SettingsPage() {
                   <div>
                     <label className="text-sm font-medium text-text-primary">Name</label>
                     <p className="text-text-secondary">
-                      {user?.firstName} {user?.lastName}
+                      {user?.name || user?.email?.split("@")[0]}
                     </p>
                   </div>
                 </div>

@@ -1,103 +1,176 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useAuthStore } from "@/store"
+import { Login } from "@/components/auth/login"
+import { Header } from "@/components/layout/header"
+import { MobileNav } from "@/components/layout/mobile-nav"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { 
+  Calendar, 
+  Target, 
+  TrendingUp, 
+  Dumbbell,
+  Plus,
+  Library,
+  Clock,
+  Award
+} from "lucide-react"
+import Link from "next/link"
+
+export default function HomePage() {
+  const { isAuthenticated, user } = useAuthStore()
+
+  if (!isAuthenticated) {
+    return <Login />
+  }
+
+  const stats = [
+    {
+      title: "Workouts This Week",
+      value: "0",
+      icon: Target,
+      color: "text-primary",
+    },
+    {
+      title: "Total Workouts",
+      value: "0", 
+      icon: Dumbbell,
+      color: "text-secondary",
+    },
+    {
+      title: "Hours Trained",
+      value: "0h",
+      icon: Clock,
+      color: "text-rest",
+    },
+    {
+      title: "Streak",
+      value: "0 days",
+      icon: Award,
+      color: "text-success",
+    },
+  ]
+
+  const quickActions = [
+    {
+      title: "Add Workout",
+      description: "Import or create a new workout",
+      href: "/add",
+      icon: Plus,
+      primary: true,
+    },
+    {
+      title: "Browse Library", 
+      description: "View your saved workouts",
+      href: "/library",
+      icon: Library,
+    },
+    {
+      title: "View Calendar",
+      description: "See your workout schedule",
+      href: "/calendar", 
+      icon: Calendar,
+    },
+  ]
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <>
+      <Header />
+      <main className="min-h-screen pb-20 md:pb-8 flex justify-center">
+        <div className="w-full max-w-4xl mx-auto px-4 py-8">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-text-primary mb-2">
+              Welcome back, {user?.firstName || "there"}!
+            </h1>
+            <p className="text-text-secondary">
+              Ready to crush your fitness goals today?
+            </p>
+          </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {stats.map((stat, index) => {
+              const Icon = stat.icon
+              return (
+                <Card key={index} className="hover:shadow-medium transition-shadow duration-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-text-secondary uppercase tracking-wide font-medium">
+                          {stat.title}
+                        </p>
+                        <p className="text-2xl font-bold text-text-primary mt-1">
+                          {stat.value}
+                        </p>
+                      </div>
+                      <Icon className={`h-8 w-8 ${stat.color}`} />
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-text-primary mb-4">Quick Actions</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {quickActions.map((action, index) => {
+                const Icon = action.icon
+                return (
+                  <Link key={index} href={action.href}>
+                    <Card className={`hover:shadow-medium transition-all duration-200 cursor-pointer ${
+                      action.primary ? 'border-primary/20 bg-primary/5' : ''
+                    }`}>
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center space-x-3">
+                          <div 
+                            className={`p-2 rounded-lg ${
+                              action.primary ? 'bg-primary text-primary-foreground' : 'bg-surface text-text-secondary'
+                            }`}
+                            style={action.primary ? {backgroundColor: 'var(--primary)'} : {backgroundColor: 'var(--surface)'}}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-base">{action.title}</CardTitle>
+                            <CardDescription className="text-sm">
+                              {action.description}
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Recent Activity Placeholder */}
+          <div>
+            <h2 className="text-xl font-semibold text-text-primary mb-4">Recent Activity</h2>
+            <Card>
+              <CardContent className="p-8 text-center">
+                <TrendingUp className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-text-primary mb-2">No recent activity</h3>
+                <p className="text-text-secondary mb-4">
+                  Start by adding your first workout to see your progress here.
+                </p>
+                <Link href="/add">
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Your First Workout
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+      <MobileNav />
+    </>
+  )
 }

@@ -19,10 +19,10 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 
 export default function HomePage() {
-    return <Login />
-  }
+  const { data: session, status } = useSession()
+
   if (status !== "authenticated" || !session?.user) {
-    return null
+    return <Login />
   }
 
   const stats = [

@@ -8,21 +8,17 @@ import { Input } from "@/components/ui/input"
 import { Dumbbell } from "lucide-react"
 
 export function Login() {
-  const [email, setEmail] = useState("demo@spotter.com")
-  const [password, setPassword] = useState("password")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
 
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+
     try {
-      const res = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
       if (res?.error) {
         setError("Invalid credentials")
       }
@@ -53,10 +49,10 @@ export function Login() {
               </label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                defaultValue="demo@spotter.com"
                 required
               />
             </div>
@@ -66,10 +62,10 @@ export function Login() {
               </label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                defaultValue="password"
                 required
               />
             </div>

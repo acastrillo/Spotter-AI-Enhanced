@@ -1,16 +1,13 @@
 "use client"
-
-import { useSession } from "next-auth/react"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Library } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 export default function LibraryPage() {
-  const { data: session, status } = useSession()
 
-  if (status === "unauthenticated") {
     return <Login />
   }
   if (status !== "authenticated" || !session?.user) {

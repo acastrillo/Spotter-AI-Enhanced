@@ -1,6 +1,5 @@
 "use client"
 
-import { useSession } from "next-auth/react"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
 import { MobileNav } from "@/components/layout/mobile-nav"
@@ -17,11 +16,9 @@ import {
   Award
 } from "lucide-react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 
 export default function HomePage() {
-  const { data: session, status } = useSession()
-
-  if (status === "unauthenticated") {
     return <Login />
   }
   if (status !== "authenticated" || !session?.user) {
@@ -85,7 +82,6 @@ export default function HomePage() {
           {/* Welcome Section */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-text-primary mb-2">
-              Welcome back, {session.user.firstName || "there"}!
             </h1>
             <p className="text-text-secondary">
               Ready to crush your fitness goals today?

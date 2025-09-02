@@ -1,30 +1,30 @@
 "use client"
 
 import { useState } from "react"
-import { useAuthStore } from "@/store"
+import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Dumbbell } from "lucide-react"
 
 export function Login() {
-  const [email, setEmail] = useState("demo@spotter.com")
-  const [password, setPassword] = useState("password")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const { login } = useAuthStore()
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
     setError("")
 
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+
     try {
-      const success = await login(email, password)
-      if (!success) {
+      const res = await signIn("credentials", { email, password, callbackUrl: "/" })
+      if (res?.error) {
         setError("Invalid credentials")
       }
-    } catch (error) {
+    } catch {
       setError("Something went wrong")
     } finally {
       setLoading(false)
@@ -51,10 +51,10 @@ export function Login() {
               </label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                defaultValue="demo@spotter.com"
                 required
               />
             </div>
@@ -64,10 +64,10 @@ export function Login() {
               </label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                defaultValue="password"
                 required
               />
             </div>

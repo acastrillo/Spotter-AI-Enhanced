@@ -1,6 +1,6 @@
 "use client"
 
-import { useAuthStore } from "@/store"
+import { useSession } from "next-auth/react"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
 import { MobileNav } from "@/components/layout/mobile-nav"
@@ -8,10 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus } from "lucide-react"
 
 export default function AddPage() {
-  const { isAuthenticated } = useAuthStore()
+  const { data: session, status } = useSession()
 
-  if (!isAuthenticated) {
+  if (status === "unauthenticated") {
     return <Login />
+  }
+  if (status !== "authenticated" || !session?.user) {
+    return null
   }
 
   return (

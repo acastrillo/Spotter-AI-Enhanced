@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useAuthStore } from "@/store"
+import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { 
   Dumbbell, 
@@ -18,10 +18,10 @@ import {
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { user, logout } = useAuthStore()
+  const { data: session, status } = useSession()
 
   const handleSignOut = () => {
-    logout()
+    signOut()
   }
 
   const navigation = [
@@ -31,7 +31,7 @@ export function Header() {
     { name: "Settings", href: "/settings", icon: Settings },
   ]
 
-  if (!user) {
+  if (status !== "authenticated" || !session?.user) {
     return null
   }
 
@@ -63,7 +63,7 @@ export function Header() {
         <div className="flex items-center space-x-2">
           <div className="hidden sm:flex items-center space-x-2 text-sm text-text-secondary">
             <User className="h-4 w-4" />
-            <span>{user?.firstName || user?.email}</span>
+            <span>{session.user?.firstName || session.user.email}</span>
           </div>
           
           <Button

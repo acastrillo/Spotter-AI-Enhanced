@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useAuthStore } from "@/store"
+import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,19 +12,21 @@ export function Login() {
   const [password, setPassword] = useState("password")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const { login } = useAuthStore()
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
 
     try {
-      const success = await login(email, password)
-      if (!success) {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
+      if (res?.error) {
         setError("Invalid credentials")
       }
-    } catch (error) {
+    } catch {
       setError("Something went wrong")
     } finally {
       setLoading(false)

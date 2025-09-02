@@ -1,6 +1,6 @@
 "use client"
 
-import { useAuthStore } from "@/store"
+import { useSession } from "next-auth/react"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
 import { MobileNav } from "@/components/layout/mobile-nav"
@@ -19,10 +19,13 @@ import {
 import Link from "next/link"
 
 export default function HomePage() {
-  const { isAuthenticated, user } = useAuthStore()
+  const { data: session, status } = useSession()
 
-  if (!isAuthenticated) {
+  if (status === "unauthenticated") {
     return <Login />
+  }
+  if (status !== "authenticated" || !session?.user) {
+    return null
   }
 
   const stats = [
@@ -82,7 +85,7 @@ export default function HomePage() {
           {/* Welcome Section */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-text-primary mb-2">
-              Welcome back, {user?.firstName || "there"}!
+              Welcome back, {session.user.firstName || "there"}!
             </h1>
             <p className="text-text-secondary">
               Ready to crush your fitness goals today?

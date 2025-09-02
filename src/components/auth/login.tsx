@@ -10,7 +10,6 @@ import { Dumbbell } from "lucide-react"
 export function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
     setError("")
@@ -20,7 +19,6 @@ export function Login() {
     const password = formData.get("password") as string
 
     try {
-      const res = await signIn("credentials", { email, password, callbackUrl: "/" })
       if (res?.error) {
         setError("Invalid credentials")
       }

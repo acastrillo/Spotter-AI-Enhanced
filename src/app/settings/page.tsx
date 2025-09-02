@@ -8,12 +8,13 @@ import { Settings } from "lucide-react"
 import { useSession } from "next-auth/react"
 
 export default function SettingsPage() {
-  const { data: session } = useSession()
-  const user = session?.user
-
-  if (!session) {
     return <Login />
   }
+  if (status !== "authenticated" || !session?.user) {
+    return null
+  }
+
+  const user = session.user
 
   return (
     <>

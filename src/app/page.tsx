@@ -19,11 +19,10 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 
 export default function HomePage() {
-  const { data: session } = useSession()
-  const user = session?.user
-
-  if (!session) {
     return <Login />
+  }
+  if (status !== "authenticated" || !session?.user) {
+    return null
   }
 
   const stats = [
@@ -83,7 +82,6 @@ export default function HomePage() {
           {/* Welcome Section */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-text-primary mb-2">
-              Welcome back, {user?.name || user?.email?.split("@")[0] || "there"}!
             </h1>
             <p className="text-text-secondary">
               Ready to crush your fitness goals today?

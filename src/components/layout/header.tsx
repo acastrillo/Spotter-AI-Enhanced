@@ -18,8 +18,6 @@ import {
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { data: session } = useSession()
-  const user = session?.user
 
   const handleSignOut = () => {
     signOut()
@@ -32,7 +30,7 @@ export function Header() {
     { name: "Settings", href: "/settings", icon: Settings },
   ]
 
-  if (!user) {
+  if (status !== "authenticated" || !session?.user) {
     return null
   }
 
@@ -64,7 +62,6 @@ export function Header() {
         <div className="flex items-center space-x-2">
           <div className="hidden sm:flex items-center space-x-2 text-sm text-text-secondary">
             <User className="h-4 w-4" />
-            <span>{user?.name || user?.email}</span>
           </div>
           
           <Button

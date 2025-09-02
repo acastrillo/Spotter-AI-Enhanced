@@ -1,5 +1,4 @@
 "use client"
-
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
 import { MobileNav } from "@/components/layout/mobile-nav"
@@ -8,10 +7,11 @@ import { Library } from "lucide-react"
 import { useSession } from "next-auth/react"
 
 export default function LibraryPage() {
-  const { data: session } = useSession()
 
-  if (!session) {
     return <Login />
+  }
+  if (status !== "authenticated" || !session?.user) {
+    return null
   }
 
   return (

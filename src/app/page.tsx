@@ -121,22 +121,23 @@ export default function HomePage() {
                 const Icon = action.icon
                 return (
                   <Link key={index} href={action.href}>
-                    <Card className={`hover:shadow-medium transition-all duration-200 cursor-pointer ${
-                      action.primary ? 'border-primary/20 bg-primary/5' : ''
+                    <Card className={`hover:shadow-lg transition-all duration-200 cursor-pointer group ${
+                      action.primary ? 'border-primary/30 bg-primary/10 hover:bg-primary/15' : 'hover:border-border/80'
                     }`}>
                       <CardHeader className="pb-4">
                         <div className="flex items-center space-x-3">
                           <div 
-                            className={`p-2 rounded-lg ${
-                              action.primary ? 'bg-primary text-primary-foreground' : 'bg-surface text-text-secondary'
+                            className={`p-3 rounded-xl transition-colors duration-200 ${
+                              action.primary 
+                                ? 'bg-primary text-primary-foreground group-hover:bg-primary/90' 
+                                : 'bg-surface text-text-secondary group-hover:bg-surface/80'
                             }`}
-                            style={action.primary ? {backgroundColor: 'var(--primary)'} : {backgroundColor: 'var(--surface)'}}
                           >
                             <Icon className="h-5 w-5" />
                           </div>
                           <div>
-                            <CardTitle className="text-base">{action.title}</CardTitle>
-                            <CardDescription className="text-sm">
+                            <CardTitle className="text-base font-semibold">{action.title}</CardTitle>
+                            <CardDescription className="text-sm mt-1">
                               {action.description}
                             </CardDescription>
                           </div>
@@ -149,18 +150,20 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Recent Activity Placeholder */}
+          {/* Recent Activity */}
           <div>
             <h2 className="text-xl font-semibold text-text-primary mb-4">Recent Activity</h2>
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-8 text-center">
-                <TrendingUp className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+                <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="h-8 w-8 text-text-secondary" />
+                </div>
                 <h3 className="text-lg font-medium text-text-primary mb-2">No recent activity</h3>
-                <p className="text-text-secondary mb-4">
+                <p className="text-text-secondary mb-6 max-w-md mx-auto">
                   Start by adding your first workout to see your progress here.
                 </p>
                 <Link href="/add">
-                  <Button>
+                  <Button size="lg" className="font-semibold">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Your First Workout
                   </Button>

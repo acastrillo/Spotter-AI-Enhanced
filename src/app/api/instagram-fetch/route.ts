@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 interface ApifyInstagramResult {
-  url: string
-  caption: string
-  displayUrl: string
-  timestamp: string
-  likesCount: number
-  commentsCount: number
-  ownerUsername: string
-  ownerFullName: string
+  url?: string
+  caption?: string
+  displayUrl?: string
+  timestamp?: string
+  likesCount?: number
+  commentsCount?: number
+  ownerUsername?: string
+  ownerFullName?: string
+  text?: string
+  // Additional possible fields
+  id?: string
+  shortcode?: string
+  videoUrl?: string
+  alt?: string
 }
 
 interface InstagramFetchRequest {
@@ -44,79 +50,167 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Call Apify Instagram scraper
-    const apifyResponse = await fetch('https://api.apify.com/v2/acts/shu8hvrXbJbY3Eb9W/run-sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apifyApiToken}`,
-      },
-      body: JSON.stringify({
-        startUrls: [{ url }],
-        resultsLimit: 1,
-        addParentData: false,
-      }),
-    })
-
-    if (!apifyResponse.ok) {
-      const errorText = await apifyResponse.text()
-      console.error('Apify API error:', apifyResponse.status, errorText)
-      return NextResponse.json(
-        { error: 'Failed to fetch Instagram data' },
-        { status: apifyResponse.status }
-      )
-    }
-
-    const apifyData = await apifyResponse.json()
+    // Fetching Instagram URL
     
-    if (!apifyData.defaultDatasetId) {
-      return NextResponse.json(
-        { error: 'No data returned from Instagram' },
-        { status: 404 }
-      )
-    }
-
-    // Get the dataset results
-    const datasetResponse = await fetch(
-      `https://api.apify.com/v2/datasets/${apifyData.defaultDatasetId}/items`,
-      {
+    try {
+      // Call Apify Instagram scraper - start the run
+      const apifyResponse = await fetch('https://api.apify.com/v2/acts/shu8hvrXbJbY3Eb9W/runs', {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${apifyApiToken}`,
         },
+        body: JSON.stringify({
+          directUrls: [url],
+          resultsLimit: 1,
+          resultsType: "posts",
+          addParentData: false,
+          enhanceUserSearchWithFacebookPage: false,
+          isUserReelFeedURL: false,
+          isUserTaggedFeedURL: false,
+          searchLimit: 1,
+        }),
+      })
+
+
+      if (!apifyResponse.ok) {
+        const errorText = await apifyResponse.text()
+        console.error('Apify API error:', apifyResponse.status, errorText)
+        return NextResponse.json(
+          { 
+            error: `Failed to start Instagram scraper: ${apifyResponse.status}`,
+            details: errorText 
+          },
+          { status: apifyResponse.status }
+        )
       }
-    )
 
-    const results: ApifyInstagramResult[] = await datasetResponse.json()
+      const runResponse = await apifyResponse.json()
+      
+      if (!runResponse || !runResponse.data || !runResponse.data.id) {
+        console.error('No run ID in response:', runResponse)
+        return NextResponse.json(
+          { error: 'Failed to start Instagram scraper - no run ID returned' },
+          { status: 500 }
+        )
+      }
+      
+      const runData = runResponse.data
 
-    if (!results || results.length === 0) {
+      // Wait for the run to complete (poll the status)
+      let attempts = 0
+      const maxAttempts = 60 // 60 seconds max wait for Instagram scraping
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+        
+        const statusResponse = await fetch(`https://api.apify.com/v2/actor-runs/${runData.id}`, {
+          headers: {
+            'Authorization': `Bearer ${apifyApiToken}`,
+          },
+        })
+
+        if (!statusResponse.ok) {
+          console.error('Status check failed:', statusResponse.status)
+          attempts++
+          continue
+        }
+
+        const statusResponse_ = await statusResponse.json()
+        const statusData = statusResponse_.data || statusResponse_
+        
+        if (!statusData || !statusData.status) {
+          console.error('Invalid status response:', statusResponse_)
+          attempts++
+          continue
+        }
+        
+        if (statusData.status === 'SUCCEEDED') {
+          
+          // Get the dataset results
+          const datasetResponse = await fetch(
+            `https://api.apify.com/v2/datasets/${statusData.defaultDatasetId}/items`,
+            {
+              headers: {
+                'Authorization': `Bearer ${apifyApiToken}`,
+              },
+            }
+          )
+
+          if (!datasetResponse.ok) {
+            const errorText = await datasetResponse.text()
+            console.error('Dataset fetch error:', errorText)
+            return NextResponse.json(
+              { error: `Failed to fetch dataset: ${errorText}` },
+              { status: datasetResponse.status }
+            )
+          }
+
+          const results: ApifyInstagramResult[] = await datasetResponse.json()
+          
+          if (!results || results.length === 0) {
+            return NextResponse.json(
+              { error: 'No Instagram post found' },
+              { status: 404 }
+            )
+          }
+
+          // Process the results
+          const post = results[0]
+          
+          const caption = post.caption || post.text || ''
+          const postUrl = post.url || url
+          const timestamp = post.timestamp || new Date().toISOString()
+          
+          const workoutData = {
+            url: postUrl,
+            title: `Instagram Workout - ${new Date(timestamp).toLocaleDateString()}`,
+            content: caption,
+            author: {
+              username: post.ownerUsername || 'unknown',
+              fullName: post.ownerFullName || 'Unknown User',
+            },
+            stats: {
+              likes: post.likesCount || 0,
+              comments: post.commentsCount || 0,
+            },
+            image: post.displayUrl || '',
+            timestamp: timestamp,
+            parsedWorkout: parseWorkoutFromCaption(caption),
+          }
+
+          return NextResponse.json(workoutData)
+          
+        } else if (statusData.status === 'FAILED') {
+          console.error('Run failed:', statusData.statusMessage)
+          return NextResponse.json(
+            { error: `Instagram scraper failed: ${statusData.statusMessage}` },
+            { status: 500 }
+          )
+        } else if (statusData.status === 'ABORTED') {
+          return NextResponse.json(
+            { error: 'Instagram scraper was aborted' },
+            { status: 500 }
+          )
+        }
+        
+        attempts++
+      }
+
+      // If we get here, the run didn't complete in time
       return NextResponse.json(
-        { error: 'No Instagram post found' },
-        { status: 404 }
+        { error: 'Instagram scraper timed out. Try again in a moment.' },
+        { status: 408 }
+      )
+      
+    } catch (parseError) {
+      console.error('JSON Parse error:', parseError)
+      return NextResponse.json(
+        { error: 'Failed to parse API response' },
+        { status: 500 }
       )
     }
 
-    const post = results[0]
-
-    // Extract workout content from caption
-    const workoutData = {
-      url: post.url,
-      title: `Instagram Workout - ${new Date(post.timestamp).toLocaleDateString()}`,
-      content: post.caption || '',
-      author: {
-        username: post.ownerUsername,
-        fullName: post.ownerFullName,
-      },
-      stats: {
-        likes: post.likesCount,
-        comments: post.commentsCount,
-      },
-      image: post.displayUrl,
-      timestamp: post.timestamp,
-      // Parse workout from caption
-      parsedWorkout: parseWorkoutFromCaption(post.caption || ''),
-    }
-
-    return NextResponse.json(workoutData)
 
   } catch (error) {
     console.error('Instagram fetch error:', error)

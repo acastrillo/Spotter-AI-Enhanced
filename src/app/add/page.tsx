@@ -48,8 +48,9 @@ export default function ImportWorkoutPage() {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to fetch workout')
+        const error = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }))
+        console.error('API Error:', error)
+        throw new Error(error.error || `Failed to fetch workout (${response.status})`)
       }
 
       const data = await response.json()

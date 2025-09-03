@@ -24,12 +24,45 @@ import {
 export default function ImportWorkoutPage() {
   const { isAuthenticated } = useAuthStore()
   const [activeTab, setActiveTab] = useState("url")
-  const [url, setUrl] = useState("https://www.instagram.com/")
+  const [url, setUrl] = useState("")
   const [workoutTitle, setWorkoutTitle] = useState("")
   const [workoutContent, setWorkoutContent] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [fetchedData, setFetchedData] = useState<any>(null)
 
   if (!isAuthenticated) {
     return <Login />
+  }
+
+  const handleFetch = async () => {
+    if (!url.trim()) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/instagram-fetch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url.trim() }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to fetch workout')
+      }
+
+      const data = await response.json()
+      setFetchedData(data)
+      setWorkoutTitle(data.title)
+      setWorkoutContent(data.content)
+      
+    } catch (error) {
+      console.error('Fetch error:', error)
+      alert(error instanceof Error ? error.message : 'Failed to fetch workout')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -83,26 +116,65 @@ export default function ImportWorkoutPage() {
                       </label>
                       <div className="flex space-x-2">
                         <Input
-                          placeholder="https://www.instagram.com/"
+                          placeholder="https://www.instagram.com/p/..."
                           value={url}
                           onChange={(e) => setUrl(e.target.value)}
                           className="flex-1"
                         />
-                        <Button>Fetch</Button>
+                        <Button 
+                          onClick={handleFetch}
+                          disabled={isLoading || !url.trim()}
+                        >
+                          {isLoading ? "Fetching..." : "Fetch"}
+                        </Button>
                       </div>
                       <p className="text-sm text-text-secondary mt-2">
                         Social media URL format: Paste URLs from Instagram, TikTok, or other platforms
                       </p>
                       
-                      <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                        <div className="flex items-start space-x-2">
-                          <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                          <div className="text-sm">
-                            <span className="text-primary font-medium">Instagram import ready:</span>
-                            <span className="text-text-secondary"> Click "Fetch" after entering an Instagram URL to automatically extract the workout content.</span>
+                      {fetchedData ? (
+                        <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                          <div className="flex items-start space-x-2 mb-3">
+                            <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                            <div className="text-sm">
+                              <span className="text-primary font-medium">Workout fetched successfully!</span>
+                              <span className="text-text-secondary"> From @{fetchedData.author.username}</span>
+                            </div>
+                          </div>
+                          {fetchedData.parsedWorkout.exercises.length > 0 && (
+                            <div className="mt-3 p-3 bg-surface rounded-lg">
+                              <h4 className="text-sm font-medium text-text-primary mb-2">
+                                Detected {fetchedData.parsedWorkout.exercises.length} exercises:
+                              </h4>
+                              <div className="space-y-1">
+                                {fetchedData.parsedWorkout.exercises.slice(0, 3).map((exercise: any, idx: number) => (
+                                  <div key={idx} className="text-xs text-text-secondary">
+                                    {exercise.name}
+                                    {exercise.sets && exercise.reps && ` - ${exercise.sets}x${exercise.reps}`}
+                                    {exercise.time && ` - ${exercise.time}`}
+                                    {exercise.weight && ` - ${exercise.weight}`}
+                                  </div>
+                                ))}
+                                {fetchedData.parsedWorkout.exercises.length > 3 && (
+                                  <div className="text-xs text-text-secondary">
+                                    ...and {fetchedData.parsedWorkout.exercises.length - 3} more
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                          <div className="flex items-start space-x-2">
+                            <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                            <div className="text-sm">
+                              <span className="text-primary font-medium">Instagram import ready:</span>
+                              <span className="text-text-secondary"> Click "Fetch" after entering an Instagram URL to automatically extract the workout content.</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </TabsContent>
@@ -146,7 +218,7 @@ export default function ImportWorkoutPage() {
                         className="min-h-[200px]"
                       />
                       <p className="text-sm text-text-secondary mt-2">
-                        0/5000 characters
+                        {workoutContent.length}/5000 characters
                       </p>
                     </div>
                   </div>

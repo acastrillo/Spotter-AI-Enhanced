@@ -156,7 +156,7 @@ function parseWorkoutFromCaption(caption: string) {
     }
 
     // Pattern: "Exercise with weight: 50lbs" or "Exercise @ 25kg"
-    const weightMatch = line.match(/(.+?)[@-:]?\s*(\d+)\s*(lbs?|kg|pounds?)/i)
+    const weightMatch = line.match(/(.+?)[@:\-]?\s*(\d+)\s*(lbs?|kg|pounds?)/i)
     if (weightMatch) {
       exercises.push({
         name: weightMatch[1].trim().replace(/^\d+\.\s*/, ''),

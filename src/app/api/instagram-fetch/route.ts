@@ -225,11 +225,23 @@ function parseWorkoutFromCaption(caption: string) {
   // Basic workout parsing logic
   const lines = caption.split('\n').filter(line => line.trim())
   const exercises: Array<{ name: string; sets?: string; reps?: string; weight?: string; time?: string }> = []
+  let workoutInstructions = ''
   
   // Look for common workout patterns
   lines.forEach(line => {
+    const trimmedLine = line.trim()
+    
+    // Pattern: Emoji numbered exercises like "1️⃣ DUMBBELL HOPS" or "2️⃣ SINGLE ARM OH LUNGE"
+    const emojiNumberMatch = trimmedLine.match(/^[0-9]️⃣\s+(.+)$/i)
+    if (emojiNumberMatch) {
+      exercises.push({
+        name: emojiNumberMatch[1].trim(),
+      })
+      return
+    }
+
     // Pattern: "Exercise: 3x10" or "Exercise - 3 sets x 10 reps"
-    const setRepMatch = line.match(/(.+?)[-:]?\s*(\d+)\s*x\s*(\d+)/i)
+    const setRepMatch = trimmedLine.match(/(.+?)[-:]?\s*(\d+)\s*x\s*(\d+)/i)
     if (setRepMatch) {
       exercises.push({
         name: setRepMatch[1].trim().replace(/^\d+\.\s*/, ''), // Remove number prefix
@@ -240,7 +252,7 @@ function parseWorkoutFromCaption(caption: string) {
     }
 
     // Pattern: "Exercise: 30 seconds" or "Exercise - 2 minutes"
-    const timeMatch = line.match(/(.+?)[-:]?\s*(\d+)\s*(sec|second|min|minute)s?/i)
+    const timeMatch = trimmedLine.match(/(.+?)[-:]?\s*(\d+)\s*(sec|second|min|minute)s?/i)
     if (timeMatch) {
       exercises.push({
         name: timeMatch[1].trim().replace(/^\d+\.\s*/, ''),
@@ -250,7 +262,7 @@ function parseWorkoutFromCaption(caption: string) {
     }
 
     // Pattern: "Exercise with weight: 50lbs" or "Exercise @ 25kg"
-    const weightMatch = line.match(/(.+?)[@:\-]?\s*(\d+)\s*(lbs?|kg|pounds?)/i)
+    const weightMatch = trimmedLine.match(/(.+?)[@:\-]?\s*(\d+)\s*(lbs?|kg|pounds?)/i)
     if (weightMatch) {
       exercises.push({
         name: weightMatch[1].trim().replace(/^\d+\.\s*/, ''),
@@ -259,16 +271,28 @@ function parseWorkoutFromCaption(caption: string) {
       return
     }
 
+    // Look for workout instructions (time/rest patterns)
+    if (trimmedLine.match(/✅.*\d+\s*(sec|second|min|minute)s?/i) ||
+        trimmedLine.match(/work.*rest/i) ||
+        trimmedLine.match(/\d+\s*sets?/i)) {
+      workoutInstructions += (workoutInstructions ? ' | ' : '') + trimmedLine
+      return
+    }
+
     // Simple exercise name (if it looks like an exercise)
-    if (line.match(/^\d+\.\s*/) || 
-        line.toLowerCase().includes('squat') ||
-        line.toLowerCase().includes('push') ||
-        line.toLowerCase().includes('pull') ||
-        line.toLowerCase().includes('press') ||
-        line.toLowerCase().includes('curl') ||
-        line.toLowerCase().includes('row')) {
+    if (trimmedLine.match(/^\d+\.\s*/) || 
+        trimmedLine.toLowerCase().includes('squat') ||
+        trimmedLine.toLowerCase().includes('push') ||
+        trimmedLine.toLowerCase().includes('pull') ||
+        trimmedLine.toLowerCase().includes('press') ||
+        trimmedLine.toLowerCase().includes('curl') ||
+        trimmedLine.toLowerCase().includes('row') ||
+        trimmedLine.toLowerCase().includes('lunge') ||
+        trimmedLine.toLowerCase().includes('burpee') ||
+        trimmedLine.toLowerCase().includes('hop') ||
+        trimmedLine.toLowerCase().includes('drag')) {
       exercises.push({
-        name: line.trim().replace(/^\d+\.\s*/, ''),
+        name: trimmedLine.trim().replace(/^\d+\.\s*/, ''),
       })
     }
   })
@@ -277,5 +301,6 @@ function parseWorkoutFromCaption(caption: string) {
     exercises,
     rawText: caption,
     totalExercises: exercises.length,
+    workoutInstructions: workoutInstructions || undefined,
   }
 }

@@ -1,0 +1,144 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+    provider = "sqlite"
+    url      = "file:./dev.db"
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("nextauth_sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  firstName     String?
+  lastName      String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts         Account[]
+  sessions         Session[]
+  workouts         Workout[]
+  workoutSessions  WorkoutSession[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Workout {
+  id                   String   @id @default(cuid())
+  title                String
+  url                  String?
+  caption              String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  userId               String
+  
+  // Meta information stored as JSON
+  equipment            String @default("[]")
+  workoutTypes         String @default("[]")
+  tags                 String @default("[]")
+  totalTimeEstimateSec Int?
+  detectedTitle        String?
+  bodyParts            String @default("[]")
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps    WorkoutStep[]
+  sessions WorkoutSession[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("workouts")
+}
+
+model WorkoutStep {
+  id               String  @id @default(cuid())
+  workoutId        String
+  order            Int
+  type             String  // 'exercise' | 'rest' | 'time'
+  raw              String
+  exercise         String?
+  sets             Int?
+  repsJson         String? // JSON string for number or number[]
+  duration         Int?    // seconds
+  weight           String?
+  distance         String?
+  timesThrough     Int?
+  workoutTypeHint  String?
+
+  workout Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+
+  @@index([workoutId, order])
+  @@map("workout_steps")
+}
+
+model WorkoutSession {
+  id         String    @id @default(cuid())
+  workoutId  String
+  userId     String
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  elapsedSec Int?
+  rpe        Int?      // Rate of Perceived Exertion (1-10)
+  notes      String?
+
+  workout Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([workoutId])
+  @@index([startedAt])
+  @@map("workout_sessions")
+}
+
+model Dictionary {
+  id         String @id @default(cuid())
+  kind       String // 'equipment' | 'type' | 'bodypart'
+  term       String
+  normalized String
+
+  @@unique([kind, normalized])
+  @@index([kind])
+  @@map("dictionaries")
+}

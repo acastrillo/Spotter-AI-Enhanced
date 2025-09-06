@@ -208,9 +208,11 @@ export default function LibraryPage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      View Details
-                    </Button>
+                    <Link href={`/workout/${workout.id}`}>
+                      <Button variant="outline" size="sm" className="flex-1">
+                        View Details
+                      </Button>
+                    </Link>
                     <Button size="sm" className="flex-1 flex items-center space-x-2">
                       <Play className="h-3 w-3" />
                       <span>Start Workout</span>

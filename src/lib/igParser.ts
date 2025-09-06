@@ -13,7 +13,7 @@ export type Movement = { name: string; raw?: string; quantity?: Quantity; load?:
 
 export type RoundInsert = { every: number; movement: Movement };
 
-export type ModeKind = 'E#MOM'|'EMOM'|'AMRAP'|'ForTime'|'FixedRounds'|'Complex'|'Ladder'|'Superset'|'Circuit';
+export type ModeKind = 'E#MOM'|'EMOM'|'AMRAP'|'ForTime'|'FixedRounds'|'Complex'|'Ladder'|'Superset'|'Circuit'|'Intervals';
 
 export type Block = {
   title?: string;
@@ -23,6 +23,7 @@ export type Block = {
   ladder?: number[];                 // e.g., [5,6,7,8]
   perRoundInserts?: RoundInsert[];   // e.g., every 5 rounds add 400m run
   sequence: Movement[];              // movements in one round/window
+  interval?: { workSec: number; restSec: number; apply: 'perExercise'|'perRound' }; // NEW
 };
 
 export type Scaling = {
@@ -235,6 +236,14 @@ function parseLoadOnly(l:string): Load | undefined {
   return parseLoad(l);
 }
 
+// Interval detection helpers
+const matchInterval = (s:string) =>
+  s.match(/(\d+)\s*(?:sec|secs|second|seconds)\s*(?:work|on)\s*[/\-]?\s*(\d+)\s*(?:sec|secs|second|seconds)\s*(?:rest|off)/i)
+  || s.match(/(\d+)\s*(?:sec|secs|second|seconds)\s*[/\-]\s*(\d+)\s*(?:sec|secs|second|seconds)/i);
+
+const matchCompleteSets = (s:string) =>
+  s.match(/complete\s*(\d+)\s*sets?/i) || s.match(/\b(\d+)\s*sets?\b/i);
+
 // Detect per-round inserts: "every 5 rounds run 400 meters"
 function parsePerRoundInsert(l:string, ref?:RefIndex): RoundInsert | null {
   const m = N(l).match(/every\s*(\d+)\s*rounds?\s*(.+)$/i);
@@ -348,6 +357,25 @@ export function parseInstagramCaption(text: string, ref?: RefIndex, provenance?:
       continue; 
     }
 
+    // interval spec e.g. "40 seconds work / 20 seconds rest"
+    const intv = matchInterval(l);
+    if (intv) {
+      const work = parseInt(intv[1], 10);
+      const rest = parseInt(intv[2], 10);
+      current!.mode = { kind: 'Intervals' };
+      current!.interval = { workSec: work, restSec: rest, apply: 'perExercise' };
+      continue;
+    }
+
+    // "Complete 4 sets" means 4 rounds through the whole list
+    const cs = matchCompleteSets(l);
+    if (cs) {
+      const r = parseInt(cs[1], 10);
+      current!.rounds = r;
+      current!.mode = current!.mode ?? { kind: 'Intervals' }; // if not already set
+      continue;
+    }
+
     // ladder header (numbers like 5-6-7-8 or 5,4,3,2,1)
     m = l.match(/(rep scheme|complex):\s*(\d+(?:[-,]\s*\d+)+)|(\d+(?:[-,]\s*\d+)+).*(complex|rep scheme)/i);
     if (m) { 
@@ -368,8 +396,8 @@ export function parseInstagramCaption(text: string, ref?: RefIndex, provenance?:
     // movement lines (bullets or plain)
     let mv: Movement | null = null;
 
-    // Remove bullet points and clean line
-    const cleanRaw = raw.replace(/^[-•✅]\s*/, '').trim();
+    // Remove bullet points, numbered lists, emojis, and clean line
+    const cleanRaw = raw.replace(/^[-•✅]\s*/, '').replace(/^\d+[️⃣.]\s*/, '').replace(/⃣\s*/, '').trim();
     if (!cleanRaw) continue;
 
     const qf = parseQuantityFirst(cleanRaw) || parseRepsFirst(cleanRaw);
@@ -466,11 +494,14 @@ export function astToRows(ast: WorkoutAST): WorkoutRow[] {
     for (let r=1; r<=rounds; r++){
       // base sequence
       for (const mv of b.sequence){
+        const qtyStr =
+          mv.quantity ? `${mv.quantity.value} ${mv.quantity.type}` :
+          b.interval?.workSec ? `${b.interval.workSec} sec` : '';
         rows.push({
           block: blockName,
           round: r,
           movement: mv.name,
-          qty: mv.quantity ? `${mv.quantity.value} ${mv.quantity.type}` : '',
+          qty: qtyStr,
           load: mv.load ? formatLoad(mv.load) : undefined,
           notes: mv.notes
         });
@@ -478,11 +509,14 @@ export function astToRows(ast: WorkoutAST): WorkoutRow[] {
       // per-round inserts (e.g., every 5 rounds add Run 400 m)
       (b.perRoundInserts ?? []).forEach(ins => {
         if (r % ins.every === 0) {
+          const qtyStr =
+            ins.movement.quantity ? `${ins.movement.quantity.value} ${ins.movement.quantity.type}` :
+            b.interval?.workSec ? `${b.interval.workSec} sec` : '';
           rows.push({
             block: blockName,
             round: r,
             movement: ins.movement.name,
-            qty: ins.movement.quantity ? `${ins.movement.quantity.value} ${ins.movement.quantity.type}` : '',
+            qty: qtyStr,
             load: ins.movement.load ? formatLoad(ins.movement.load) : undefined
           });
         }
@@ -495,10 +529,11 @@ export function astToRows(ast: WorkoutAST): WorkoutRow[] {
 // Compact WorkoutV1 builder (schema-friendly)
 function toWorkoutV1(ast: WorkoutAST, rows: WorkoutRow[], originalText: string): WorkoutV1 {
   // Group identical movements across rows into set-like summaries where possible
-  const exMap = new Map<string, { name:string; sets?:number; reps?:string|number; duration?:string|number; notes?:string }>();
+  const exMap = new Map<string, { name:string; sets?:number; reps?:string|number; duration?:string|number; rest?:string|number; notes?:string }>();
+  const roundsTotal = ast.blocks.reduce((a,b)=> a + (b.mode?.rounds ?? b.rounds ?? 1), 0);
 
   for (const row of rows) {
-    const key = row.movement + '|' + (row.qty || '');
+    const key = row.movement; // quantity can be derived from interval
     const prev = exMap.get(key);
     const isTime = /\b(min|sec)\b/.test(row.qty);
     const isReps = /\breps?\b/.test(row.qty);
@@ -507,15 +542,24 @@ function toWorkoutV1(ast: WorkoutAST, rows: WorkoutRow[], originalText: string):
     if (!prev) {
       exMap.set(key, {
         name: row.movement,
-        sets: 1,
-        reps: isReps ? val : undefined,
+        sets: roundsTotal,
+        reps: !isTime && isReps ? val : undefined,
         duration: isTime ? row.qty : undefined,
+        rest: undefined,
         notes: [row.load, row.notes].filter(Boolean).join(' ').trim() || undefined
       });
-    } else {
-      prev.sets = (prev.sets ?? 1) + 1;
     }
   }
+
+  // If any block has an interval, stamp a uniform rest/duration on timed items
+  const firstInterval = ast.blocks.find(b => b.interval)?.interval;
+  if (firstInterval) {
+    for (const v of exMap.values()) {
+      if (!v.duration) v.duration = `${firstInterval.workSec} sec`;
+      v.rest = `${firstInterval.restSec} sec`;
+    }
+  }
+
   const exercises = [...exMap.values()];
 
   // derive quick tags/equipment from movements
@@ -562,4 +606,44 @@ function toWorkoutV1(ast: WorkoutAST, rows: WorkoutRow[], originalText: string):
       }
     }
   };
+}
+
+// ====== Interval Timeline Builder for Timer ======
+export type IntervalStep = {
+  set: number; 
+  round: number; 
+  index: number; 
+  block: string;
+  type: 'work'|'rest';
+  exercise?: string;
+  sec: number;
+};
+
+export function buildIntervalTimeline(ast: WorkoutAST): { steps: IntervalStep[]; totals: { workSec:number; restSec:number; totalSec:number } } {
+  const steps: IntervalStep[] = [];
+  let workSec = 0, restSec = 0;
+
+  ast.blocks.forEach((b, bi) => {
+    const bname = b.title ?? `Block ${bi+1}`;
+    const rounds = b.mode?.rounds ?? b.rounds ?? 1;
+    const intv = b.interval;
+    const seq = b.sequence;
+
+    for (let r=1; r<=rounds; r++){
+      seq.forEach((mv, idx) => {
+        const w = intv?.workSec ?? (mv.quantity?.type === 'sec' ? mv.quantity.value : 0);
+        if (w > 0) {
+          steps.push({ set: r, round: r, index: idx+1, block: bname, type: 'work', exercise: mv.name, sec: w });
+          workSec += w;
+        }
+        const rest = intv?.restSec ?? 0;
+        if (rest > 0) {
+          steps.push({ set: r, round: r, index: idx+1, block: bname, type: 'rest', sec: rest });
+          restSec += rest;
+        }
+      });
+    }
+  });
+
+  return { steps, totals: { workSec, restSec, totalSec: workSec + restSec } };
 }

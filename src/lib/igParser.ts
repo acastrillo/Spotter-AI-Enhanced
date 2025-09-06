@@ -244,6 +244,21 @@ const matchInterval = (s:string) =>
 const matchCompleteSets = (s:string) =>
   s.match(/complete\s*(\d+)\s*sets?/i) || s.match(/\b(\d+)\s*sets?\b/i);
 
+// "Block 1 4 min, 5 times through" (many punctuation variants)
+const matchBlockHeaderWithTimer = (s:string) =>
+  s.match(/^block\s+(\d+)[^\d\n]*?(\d+)\s*(?:min|mins|minute|minutes)[^\d\n]*?(\d+)\s*(?:times?\s*through|x\s*(?:through|rounds?))/i)
+  || s.match(/^block\s+(\d+)[^\d\n]*?(\d+)\s*(?:min|minutes)[^\d\n]*?(?:,\s*)?(\d+)\s*(?:rounds?|sets?)/i);
+
+// "Every 4 minutes x 5 rounds per block"
+const matchGlobalE4MOM = (s:string) =>
+  s.match(/every\s*(\d+)\s*(?:min|mins|minute|minutes)\s*[x×]\s*(\d+)\s*(?:rounds?)?\s*(?:per\s*block)?/i);
+
+// Motivation / noise lines to ignore or store as notes
+const isNoise = (s:string) =>
+  /^(push hard|hybrid conditioning|complete the work|rest the remainder|solid\s+\d+\/\d+|share this|i am loving|tomorrow's grind)/i.test(s)
+  || /^[#@]/.test(s) // hashtags / mentions
+  || /^✅|^🔥|^💪|^⚡️/.test(s);
+
 // Detect per-round inserts: "every 5 rounds run 400 meters"
 function parsePerRoundInsert(l:string, ref?:RefIndex): RoundInsert | null {
   const m = N(l).match(/every\s*(\d+)\s*rounds?\s*(.+)$/i);
@@ -323,6 +338,8 @@ export function parseInstagramCaption(text: string, ref?: RefIndex, provenance?:
 
   // Iterate lines and build blocks
   let current: Block | null = null;
+  let defaultWindowSec: number | undefined;
+  let defaultRounds: number | undefined;
   const startBlock = (title?:string) => { if (current) ast.blocks.push(current); current = { title, sequence: [] }; };
   startBlock();
 
@@ -332,8 +349,41 @@ export function parseInstagramCaption(text: string, ref?: RefIndex, provenance?:
     // Skip empty lines or pure decorative lines
     if (!raw || /^[=\-_•]{3,}$/.test(raw) || /^[⏱️⏰🔥💪✅]{2,}/.test(raw)) continue;
 
-    // block headers
-    if (/^block\s+\d+/i.test(l)) { startBlock(raw.trim()); continue; }
+    // NOISE → notes (do not create a movement)
+    if (isNoise(l)) { 
+      ast.notes = ast.notes || [];
+      ast.notes.push(raw.trim()); 
+      continue; 
+    }
+
+    // Global E4MOM
+    const g = matchGlobalE4MOM(l);
+    if (g) { 
+      defaultWindowSec = parseInt(g[1],10)*60; 
+      defaultRounds = parseInt(g[2],10); 
+      continue; 
+    }
+
+    // Block header only ("Block 1") OR with timer/rounds ("Block 1 4 min, 5 times through")
+    if (/^block\s+\d+/.test(l)) {
+      const hdr = matchBlockHeaderWithTimer(l);
+      // start a fresh block
+      startBlock(raw.trim());
+
+      if (hdr) {
+        const winMin = parseInt(hdr[2], 10);
+        const rounds = parseInt(hdr[3], 10);
+        current!.mode = { kind: 'E#MOM', windowSec: winMin*60, rounds };
+        current!.rounds = rounds;
+      } else {
+        // inherit global default if present
+        if (defaultWindowSec || defaultRounds) {
+          current!.mode = { kind: 'E#MOM', windowSec: defaultWindowSec, rounds: defaultRounds };
+          if (defaultRounds) current!.rounds = defaultRounds;
+        }
+      }
+      continue;
+    }
 
     // explicit mode lines
     const mode = detectMode(l);
@@ -343,10 +393,12 @@ export function parseInstagramCaption(text: string, ref?: RefIndex, provenance?:
       continue; 
     }
 
-    // rest between blocks
-    let m = l.match(/(\d+)\s*(sec|secs|second|seconds|min|mins|minutes)\s*rest.*between blocks/i);
+    // rest between blocks - store globally, we'll apply to relevant blocks later
+    let m = l.match(/(\d+)\s*(sec|secs|second|seconds|min|mins|minutes)\s*rest.*between\s+blocks/i);
     if (m) { 
-      current!.restBetweenBlocksSec = timeToSec(num(m[1]), m[2]); 
+      // Store as a note for now - could be enhanced to apply to actual blocks
+      ast.notes = ast.notes || [];
+      ast.notes.push(`${timeToSec(num(m[1]), m[2])}s rest between blocks`);
       continue; 
     }
 
@@ -391,6 +443,12 @@ export function parseInstagramCaption(text: string, ref?: RefIndex, provenance?:
       current!.rounds = num(m[1]); 
       current!.mode ??= { kind:'FixedRounds' }; 
       continue; 
+    }
+
+    // Guard against "Every" lines becoming movements
+    if (/^every\b/i.test(l) && /\d/.test(l)) { // it described a mode, not a movement
+      // handled by matchGlobalE4MOM above
+      continue;
     }
 
     // movement lines (bullets or plain)
@@ -450,6 +508,9 @@ export function parseInstagramCaption(text: string, ref?: RefIndex, provenance?:
   }
   
   if (current) ast.blocks.push(current);
+
+  // Filter out empty blocks (blocks with no exercises)
+  ast.blocks = ast.blocks.filter(block => block.sequence.length > 0);
 
   // Track glossary hits
   ast.glossaryHits = [];

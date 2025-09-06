@@ -154,9 +154,9 @@ export default function WorkoutDetailPage() {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3">
-              <Button size="lg" className="flex items-center space-x-2">
+              <Button size="lg" disabled className="flex items-center space-x-2 opacity-60">
                 <Play className="h-4 w-4" />
-                <span>Start Workout</span>
+                <span>Start Workout (Coming Soon)</span>
               </Button>
               <Link href={`/workout/${workout.id}/edit`}>
                 <Button variant="outline" size="lg" className="flex items-center space-x-2">

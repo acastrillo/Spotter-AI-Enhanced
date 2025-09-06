@@ -213,9 +213,9 @@ export default function LibraryPage() {
                         View Details
                       </Button>
                     </Link>
-                    <Button size="sm" className="flex-1 flex items-center space-x-2">
+                    <Button size="sm" disabled className="flex-1 flex items-center space-x-2 opacity-60">
                       <Play className="h-3 w-3" />
-                      <span>Start Workout</span>
+                      <span>Coming Soon</span>
                     </Button>
                   </div>
                 </CardContent>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/store"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
@@ -23,6 +24,7 @@ import {
 
 export default function ImportWorkoutPage() {
   const { isAuthenticated } = useAuthStore()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState("url")
   const [url, setUrl] = useState("")
   const [workoutTitle, setWorkoutTitle] = useState("")
@@ -63,6 +65,36 @@ export default function ImportWorkoutPage() {
       alert(error instanceof Error ? error.message : 'Failed to fetch workout')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleParseWorkout = async () => {
+    if (!workoutTitle || !workoutContent) return
+
+    try {
+      // Save the workout to localStorage (or eventually to a database)
+      const workout = {
+        id: Date.now().toString(),
+        title: workoutTitle,
+        content: workoutContent,
+        parsedData: fetchedData?.parsedWorkout || null,
+        author: fetchedData?.author || null,
+        createdAt: new Date().toISOString(),
+        source: fetchedData?.url || 'manual',
+        type: activeTab === 'url' ? 'social' : activeTab
+      }
+
+      // Get existing workouts
+      const existingWorkouts = JSON.parse(localStorage.getItem('workouts') || '[]')
+      existingWorkouts.push(workout)
+      localStorage.setItem('workouts', JSON.stringify(existingWorkouts))
+
+      // Redirect to library page
+      router.push('/library')
+      
+    } catch (error) {
+      console.error('Save error:', error)
+      alert('Failed to save workout')
     }
   }
 
@@ -142,28 +174,31 @@ export default function ImportWorkoutPage() {
                               <span className="text-text-secondary"> From @{fetchedData.author.username}</span>
                             </div>
                           </div>
-                          {fetchedData.parsedWorkout.exercises.length > 0 && (
-                            <div className="mt-3 p-3 bg-surface rounded-lg">
-                              <h4 className="text-sm font-medium text-text-primary mb-2">
-                                Detected {fetchedData.parsedWorkout.exercises.length} exercises:
-                              </h4>
-                              <div className="space-y-1">
-                                {fetchedData.parsedWorkout.exercises.slice(0, 3).map((exercise: any, idx: number) => (
-                                  <div key={idx} className="text-xs text-text-secondary">
-                                    {exercise.name}
-                                    {exercise.sets && exercise.reps && ` - ${exercise.sets}x${exercise.reps}`}
-                                    {exercise.time && ` - ${exercise.time}`}
-                                    {exercise.weight && ` - ${exercise.weight}`}
-                                  </div>
-                                ))}
-                                {fetchedData.parsedWorkout.exercises.length > 3 && (
-                                  <div className="text-xs text-text-secondary">
-                                    ...and {fetchedData.parsedWorkout.exercises.length - 3} more
-                                  </div>
-                                )}
-                              </div>
+                          <div className="mt-3 p-3 bg-surface rounded-lg">
+                            <h4 className="text-sm font-medium text-text-primary mb-2">
+                              Full Caption Content:
+                            </h4>
+                            <div className="text-xs text-text-secondary whitespace-pre-wrap max-h-32 overflow-y-auto">
+                              {fetchedData.content}
                             </div>
-                          )}
+                            {fetchedData.parsedWorkout.exercises.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-border">
+                                <h4 className="text-sm font-medium text-text-primary mb-2">
+                                  Detected {fetchedData.parsedWorkout.exercises.length} exercises:
+                                </h4>
+                                <div className="space-y-1 max-h-24 overflow-y-auto">
+                                  {fetchedData.parsedWorkout.exercises.map((exercise: any, idx: number) => (
+                                    <div key={idx} className="text-xs text-text-secondary">
+                                      {exercise.name}
+                                      {exercise.sets && exercise.reps && ` - ${exercise.sets}x${exercise.reps}`}
+                                      {exercise.time && ` - ${exercise.time}`}
+                                      {exercise.weight && ` - ${exercise.weight}`}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
@@ -230,7 +265,8 @@ export default function ImportWorkoutPage() {
                 <Button 
                   size="lg" 
                   className="px-8"
-                  disabled={activeTab === "manual" && (!workoutTitle || !workoutContent)}
+                  onClick={handleParseWorkout}
+                  disabled={!workoutTitle || !workoutContent}
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   Parse Workout

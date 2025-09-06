@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import Link from "next/link"
 import { useAuthStore } from "@/store"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
@@ -23,6 +24,13 @@ export default function LibraryPage() {
   const { isAuthenticated } = useAuthStore()
   const [searchQuery, setSearchQuery] = useState("")
   const [activeFilter, setActiveFilter] = useState("All")
+  const [workouts, setWorkouts] = useState<any[]>([])
+
+  useEffect(() => {
+    // Load workouts from localStorage
+    const savedWorkouts = JSON.parse(localStorage.getItem('workouts') || '[]')
+    setWorkouts(savedWorkouts)
+  }, [])
 
   if (!isAuthenticated) {
     return <Login />
@@ -37,118 +45,40 @@ export default function LibraryPage() {
     { label: "HIT" }
   ]
 
-  // Mock workout data matching the target design
-  const workouts = [
-    {
-      id: 1,
-      title: "Instagram Workout - 8/22/2025",
-      date: "8/22/2025",
-      steps: "9 steps",
-      exercises: "6 exercises",
-      duration: "0 min",
-      tags: ["dumbbell", "barbell"],
-      content: [
-        "🔥 PUSH DAY WORKOUT! 🔥",
-        "Upper Body Blast",
-        "7 more steps..."
-      ]
-    },
-    {
-      id: 2,
-      title: "Instagram Workout - 8/22/2025", 
-      date: "8/22/2025",
-      steps: "7 steps",
-      exercises: "6 exercises",
-      duration: "0 min",
-      tags: ["dumbbell", "barbell"],
-      content: [
-        "🔥 PUSH DAY WORKOUT! 🔥",
-        "Push-ups: 3 sets x 15 reps",
-        "5 more steps..."
-      ]
-    },
-    {
-      id: 3,
-      title: "Instagram Workout - 8/22/2025",
-      date: "8/22/2025", 
-      steps: "9 steps",
-      exercises: "6 exercises",
-      duration: "0 min", 
-      tags: ["dumbbell", "barbell"],
-      content: [
-        "🔥 PUSH DAY WORKOUT! 🔥",
-        "Upper Body Blast",
-        "7 more steps..."
-      ]
-    },
-    {
-      id: 4,
-      title: "Instagram Workout - 8/22/2025",
-      date: "8/22/2025",
-      steps: "9 steps", 
-      exercises: "8 exercises",
-      duration: "0 min",
-      tags: ["dumbbell", "barbell"],
-      content: [
-        "🔥 PUSH DAY WORKOUT! 🔥",
-        "Upper Body Blast",
-        "7 more steps..."
-      ]
-    },
-    {
-      id: 5,
-      title: "Instagram Workout - 8/22/2025",
-      date: "8/22/2025",
-      steps: "1 steps",
-      exercises: "1 exercises",
-      duration: "0 min",
-      tags: [],
-      content: [
-        "test 3"
-      ]
-    },
-    {
-      id: 6,
-      title: "Instagram Workout - 8/22/2025",
-      date: "8/22/2025", 
-      steps: "1 steps",
-      exercises: "1 exercises",
-      duration: "0 min",
-      tags: [],
-      content: [
-        "test 2"
-      ]
-    },
-    {
-      id: 7,
-      title: "Instagram Workout - 8/22/2025",
-      date: "8/22/2025",
-      steps: "1 steps",
-      exercises: "1 exercises", 
-      duration: "0 min",
-      tags: [],
-      content: [
-        "test"
-      ]
+  // Transform saved workouts to display format
+  const displayWorkouts = workouts.map(workout => {
+    const contentLines = workout.content.split('\n').filter(line => line.trim())
+    const exercises = workout.parsedData?.exercises || []
+    const equipmentTags = workout.parsedData?.equipment || []
+    
+    return {
+      id: workout.id,
+      title: workout.title,
+      date: new Date(workout.createdAt).toLocaleDateString(),
+      steps: `${contentLines.length} steps`,
+      exercises: `${exercises.length} exercises`,
+      duration: "0 min", // Could be calculated from parsed data
+      tags: equipmentTags.slice(0, 2), // Show first 2 equipment tags
+      content: contentLines.slice(0, 3).map(line => line.length > 50 ? line.substring(0, 50) + '...' : line)
     }
-  ]
+  })
 
   const summaryStats = [
     {
       icon: Dumbbell,
-      value: "7",
+      value: workouts.length.toString(),
       label: "Total Workouts",
       color: "text-primary"
     },
     {
       icon: Clock, 
-      value: "0",
-      label: "Body Parts",
+      value: workouts.reduce((total, w) => total + (w.parsedData?.exercises?.length || 0), 0).toString(),
+      label: "Total Exercises",
       color: "text-secondary"
     },
     {
       icon: Clock,
-      value: "3 min",
+      value: "0 min",
       label: "Total Time", 
       color: "text-rest"
     }
@@ -169,10 +99,12 @@ export default function LibraryPage() {
                 Your saved workouts and routines
               </p>
             </div>
-            <Button className="flex items-center space-x-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Workout</span>
-            </Button>
+            <Link href="/add">
+              <Button className="flex items-center space-x-2">
+                <Plus className="h-4 w-4" />
+                <span>Add Workout</span>
+              </Button>
+            </Link>
           </div>
 
           {/* Search and Filter Bar */}
@@ -213,7 +145,20 @@ export default function LibraryPage() {
 
           {/* Workout Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {workouts.map((workout) => (
+            {displayWorkouts.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <Dumbbell className="h-12 w-12 text-text-secondary mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-text-primary mb-2">No workouts yet</h3>
+                <p className="text-text-secondary mb-4">Import your first workout to get started</p>
+                <Link href="/add">
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Workout
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              displayWorkouts.map((workout) => (
               <Card key={workout.id} className="group hover:shadow-lg transition-all duration-200">
                 <CardContent className="p-6">
                   {/* Workout Header */}
@@ -273,7 +218,8 @@ export default function LibraryPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Bottom Stats Summary */}

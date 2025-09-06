@@ -158,10 +158,12 @@ export default function WorkoutDetailPage() {
                 <Play className="h-4 w-4" />
                 <span>Start Workout</span>
               </Button>
-              <Button variant="outline" size="lg" className="flex items-center space-x-2">
-                <Edit className="h-4 w-4" />
-                <span>Edit Workout</span>
-              </Button>
+              <Link href={`/workout/${workout.id}/edit`}>
+                <Button variant="outline" size="lg" className="flex items-center space-x-2">
+                  <Edit className="h-4 w-4" />
+                  <span>Edit Workout</span>
+                </Button>
+              </Link>
               {workout.source !== 'manual' && workout.source && (
                 <a 
                   href={workout.source} 

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useAuthStore } from "@/store"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
@@ -20,6 +21,72 @@ import Link from "next/link"
 
 export default function HomePage() {
   const { isAuthenticated, user } = useAuthStore()
+  const [workoutStats, setWorkoutStats] = useState({
+    thisWeek: 0,
+    total: 0,
+    hoursTrained: 0,
+    streak: 0
+  })
+  const [recentCompletions, setRecentCompletions] = useState<any[]>([])
+
+  useEffect(() => {
+    // Load workout library and completed workouts
+    const savedWorkouts = JSON.parse(localStorage.getItem('workouts') || '[]')
+    const completedWorkouts = JSON.parse(localStorage.getItem('completedWorkouts') || '[]')
+    
+    // Calculate stats
+    const now = new Date()
+    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()))
+    startOfWeek.setHours(0, 0, 0, 0)
+    
+    const thisWeekCompletions = completedWorkouts.filter((completion: any) => {
+      const completionDate = new Date(completion.completedDate)
+      return completionDate >= startOfWeek
+    })
+
+    // Calculate streak (consecutive days with workouts)
+    const sortedDates = [...new Set(completedWorkouts.map((c: any) => c.completedDate))]
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+    
+    let streak = 0
+    const today = new Date().toISOString().split('T')[0]
+    let checkDate = today
+    
+    for (const date of sortedDates) {
+      if (date === checkDate) {
+        streak++
+        const prevDate = new Date(checkDate)
+        prevDate.setDate(prevDate.getDate() - 1)
+        checkDate = prevDate.toISOString().split('T')[0]
+      } else {
+        break
+      }
+    }
+
+    // Estimate hours (assume 45 mins per workout average)
+    const hoursTrained = Math.round((completedWorkouts.length * 0.75) * 10) / 10
+
+    setWorkoutStats({
+      thisWeek: thisWeekCompletions.length,
+      total: completedWorkouts.length,
+      hoursTrained,
+      streak
+    })
+
+    // Get recent completions with workout names
+    const recentWithNames = completedWorkouts
+      .sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+      .slice(0, 5)
+      .map((completion: any) => {
+        const workout = savedWorkouts.find((w: any) => w.id === completion.workoutId)
+        return {
+          ...completion,
+          workoutName: workout?.title || 'Unknown Workout'
+        }
+      })
+    
+    setRecentCompletions(recentWithNames)
+  }, [])
 
   if (!isAuthenticated) {
     return <Login />
@@ -28,25 +95,25 @@ export default function HomePage() {
   const stats = [
     {
       title: "Workouts This Week",
-      value: "0",
+      value: workoutStats.thisWeek.toString(),
       icon: Target,
       color: "text-primary",
     },
     {
       title: "Total Workouts",
-      value: "0", 
+      value: workoutStats.total.toString(), 
       icon: Dumbbell,
       color: "text-secondary",
     },
     {
       title: "Hours Trained",
-      value: "0h",
+      value: `${workoutStats.hoursTrained}h`,
       icon: Clock,
       color: "text-rest",
     },
     {
       title: "Streak",
-      value: "0 days",
+      value: `${workoutStats.streak} days`,
       icon: Award,
       color: "text-success",
     },
@@ -153,23 +220,63 @@ export default function HomePage() {
           {/* Recent Activity */}
           <div>
             <h2 className="text-xl font-semibold text-text-primary mb-4">Recent Activity</h2>
-            <Card className="border-0">
-              <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-4">
-                  <TrendingUp className="h-8 w-8 text-text-secondary" />
-                </div>
-                <h3 className="text-lg font-medium text-text-primary mb-2">No recent activity</h3>
-                <p className="text-text-secondary mb-6 max-w-md mx-auto">
-                  Start by adding your first workout to see your progress here.
-                </p>
-                <Link href="/add">
-                  <Button size="lg" className="font-semibold">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Your First Workout
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+            {recentCompletions.length === 0 ? (
+              <Card className="border-0">
+                <CardContent className="p-8 text-center">
+                  <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-4">
+                    <TrendingUp className="h-8 w-8 text-text-secondary" />
+                  </div>
+                  <h3 className="text-lg font-medium text-text-primary mb-2">No recent activity</h3>
+                  <p className="text-text-secondary mb-6 max-w-md mx-auto">
+                    Start by adding your first workout to see your progress here.
+                  </p>
+                  <Link href="/add">
+                    <Button size="lg" className="font-semibold">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Your First Workout
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {recentCompletions.map((completion, index) => (
+                  <Card key={completion.id} className="border-0">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                            <Award className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-text-primary">{completion.workoutName}</p>
+                            <p className="text-sm text-text-secondary">
+                              Completed on {new Date(completion.completedDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-sm text-text-secondary">
+                          {index === 0 && new Date(completion.completedDate).toDateString() === new Date().toDateString() 
+                            ? 'Today' 
+                            : new Date(completion.completedDate).toLocaleDateString()
+                          }
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {recentCompletions.length > 0 && (
+                  <div className="text-center pt-4">
+                    <Link href="/library">
+                      <Button variant="outline">
+                        <Library className="h-4 w-4 mr-2" />
+                        View All Workouts
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>

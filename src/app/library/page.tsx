@@ -17,7 +17,9 @@ import {
   Clock, 
   Calendar,
   MoreHorizontal,
-  Play
+  Play,
+  CheckCircle,
+  CalendarDays
 } from "lucide-react"
 
 export default function LibraryPage() {
@@ -25,12 +27,35 @@ export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeFilter, setActiveFilter] = useState("All")
   const [workouts, setWorkouts] = useState<any[]>([])
+  const [showDatePicker, setShowDatePicker] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
     // Load workouts from localStorage
     const savedWorkouts = JSON.parse(localStorage.getItem('workouts') || '[]')
     setWorkouts(savedWorkouts)
   }, [])
+
+  const handleMarkCompleted = (workoutId: string) => {
+    const completionDate = new Date(selectedDate).toISOString()
+    
+    // Get existing completions
+    const existingCompletions = JSON.parse(localStorage.getItem('completedWorkouts') || '[]')
+    
+    // Add new completion
+    const newCompletion = {
+      id: Date.now().toString(),
+      workoutId,
+      completedAt: completionDate,
+      completedDate: selectedDate
+    }
+    
+    existingCompletions.push(newCompletion)
+    localStorage.setItem('completedWorkouts', JSON.stringify(existingCompletions))
+    
+    setShowDatePicker(null)
+    alert(`Workout marked as completed on ${selectedDate}!`)
+  }
 
   if (!isAuthenticated) {
     return <Login />
@@ -207,16 +232,57 @@ export default function LibraryPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    <Link href={`/workout/${workout.id}`}>
-                      <Button variant="outline" size="sm" className="flex-1">
-                        View Details
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Link href={`/workout/${workout.id}`}>
+                        <Button variant="outline" size="sm" className="flex-1">
+                          View Details
+                        </Button>
+                      </Link>
+                      <Button size="sm" disabled className="flex-1 flex items-center space-x-2 opacity-60">
+                        <Play className="h-3 w-3" />
+                        <span>Coming Soon</span>
                       </Button>
-                    </Link>
-                    <Button size="sm" disabled className="flex-1 flex items-center space-x-2 opacity-60">
-                      <Play className="h-3 w-3" />
-                      <span>Coming Soon</span>
-                    </Button>
+                    </div>
+                    
+                    {/* Mark Completed Section */}
+                    {showDatePicker === workout.id ? (
+                      <div className="space-y-2">
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleMarkCompleted(workout.id)}
+                            className="flex-1"
+                          >
+                            Confirm
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => setShowDatePicker(null)}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowDatePicker(workout.id)}
+                        className="w-full flex items-center space-x-2"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Mark Completed</span>
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

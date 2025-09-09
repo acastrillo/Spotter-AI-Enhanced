@@ -46,7 +46,7 @@ export default function HomePage() {
 
     // Calculate streak (consecutive days with workouts)
     const sortedDates = [...new Set(completedWorkouts.map((c: any) => c.completedDate))]
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+      .sort((a, b) => new Date(b as string).getTime() - new Date(a as string).getTime())
     
     let streak = 0
     const today = new Date().toISOString().split('T')[0]

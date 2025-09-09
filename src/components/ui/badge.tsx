@@ -1,20 +1,22 @@
-import * as React from "react"
+import { cn } from "@/lib/utils"
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
+interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: "default" | "secondary" | "destructive" | "outline"
 }
 
-function Badge({ className = "", variant = "default", ...props }: BadgeProps) {
+function Badge({ className, variant = "default", ...props }: BadgeProps) {
+  const baseClasses = "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors"
+  
   const variantClasses = {
-    default: "bg-primary text-primary-foreground hover:bg-primary/80",
-    secondary: "bg-primary/10 text-primary hover:bg-primary/20",
-    destructive: "bg-red-500 text-white hover:bg-red-600",
-    outline: "border border-gray-300 text-gray-700"
+    default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+    secondary: "border-transparent bg-surface text-text-primary hover:bg-surface/80",
+    destructive: "border-transparent bg-red-500 text-white hover:bg-red-500/80",
+    outline: "text-text-primary border-border",
   }
-
+  
   return (
     <div 
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${variantClasses[variant]} ${className}`} 
+      className={cn(baseClasses, variantClasses[variant], className)} 
       {...props} 
     />
   )

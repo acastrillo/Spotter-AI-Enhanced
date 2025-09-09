@@ -2,12 +2,10 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { type WorkoutRow, type WorkoutAST } from './igParser';
 
 interface EditableWorkoutTableProps {
-  rows: WorkoutRow[];
-  onRowsChange: (updatedRows: WorkoutRow[]) => void;
-  ast?: WorkoutAST;
+  exercises: any[];
+  onExercisesChange: (updatedExercises: any[]) => void;
   className?: string;
 }
 
@@ -66,16 +64,16 @@ const EditableCell: React.FC<EditableCellProps> = ({
           }}
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
-          className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-2 py-1 text-sm border border-border rounded focus:outline-none focus:ring-2 focus:ring-primary bg-background text-text-primary"
           autoFocus
         />
         
         {showSuggestions && filteredSuggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-10 max-h-32 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg">
+          <div className="absolute top-full left-0 right-0 z-10 max-h-32 overflow-y-auto bg-surface border border-border rounded shadow-lg">
             {filteredSuggestions.slice(0, 5).map((suggestion, index) => (
               <div
                 key={index}
-                className="px-2 py-1 text-sm cursor-pointer hover:bg-blue-100"
+                className="px-2 py-1 text-sm cursor-pointer hover:bg-primary/10 text-text-primary"
                 onMouseDown={() => {
                   setEditValue(suggestion);
                   setTimeout(handleSave, 0);
@@ -92,54 +90,19 @@ const EditableCell: React.FC<EditableCellProps> = ({
 
   return (
     <div
-      className="px-2 py-1 text-sm cursor-pointer hover:bg-gray-100 rounded min-h-[24px]"
+      className="px-2 py-1 text-sm cursor-pointer hover:bg-primary/10 rounded min-h-[24px] text-text-primary"
       onClick={() => setIsEditing(true)}
       title="Click to edit"
     >
-      {value || <span className="text-gray-400 italic">Click to edit</span>}
+      {value || <span className="text-text-secondary italic">Click to edit</span>}
     </div>
   );
 };
 
-const WorkoutModeIndicator: React.FC<{ mode?: WorkoutAST['blocks'][0]['mode'] }> = ({ mode }) => {
-  if (!mode) return null;
-
-  const getBadgeColor = (kind: string) => {
-    switch (kind) {
-      case 'AMRAP': return 'bg-red-100 text-red-800';
-      case 'E#MOM':
-      case 'EMOM': return 'bg-blue-100 text-blue-800';
-      case 'ForTime': return 'bg-green-100 text-green-800';
-      case 'Complex': return 'bg-purple-100 text-purple-800';
-      case 'Ladder': return 'bg-yellow-100 text-yellow-800';
-      case 'FixedRounds': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className={`px-2 py-1 rounded ${getBadgeColor(mode.kind)}`}>
-        {mode.kind}
-      </span>
-      {mode.windowSec && (
-        <span className="text-gray-600">
-          {Math.round(mode.windowSec / 60)}min window
-        </span>
-      )}
-      {mode.rounds && (
-        <span className="text-gray-600">
-          {mode.rounds} rounds
-        </span>
-      )}
-    </div>
-  );
-};
 
 export const EditableWorkoutTable: React.FC<EditableWorkoutTableProps> = ({
-  rows,
-  onRowsChange,
-  ast,
+  exercises,
+  onExercisesChange,
   className = ''
 }) => {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
@@ -164,226 +127,162 @@ export const EditableWorkoutTable: React.FC<EditableWorkoutTableProps> = ({
     '2x 50 lb DB', '2x 35 lb DB', '48 kg KB', '32 kg KB'
   ];
 
-  const updateRow = useCallback((index: number, field: keyof WorkoutRow, value: string) => {
-    const updatedRows = rows.map((row, i) => 
-      i === index ? { ...row, [field]: value } : row
+  const updateExercise = useCallback((index: number, field: string, value: string) => {
+    const updatedExercises = exercises.map((exercise, i) => 
+      i === index ? { ...exercise, [field]: value } : exercise
     );
-    onRowsChange(updatedRows);
-  }, [rows, onRowsChange]);
+    onExercisesChange(updatedExercises);
+  }, [exercises, onExercisesChange]);
 
-  const addRow = useCallback(() => {
-    const lastRow = rows[rows.length - 1];
-    const newRow: WorkoutRow = {
-      block: lastRow?.block || 'Block 1',
-      round: lastRow?.round || 1,
-      movement: '',
-      qty: '',
-      load: undefined,
-      notes: undefined
+  const addExercise = useCallback(() => {
+    const newExercise = {
+      id: `ex-${Date.now()}-${Math.random()}`,
+      name: '',
+      sets: 1,
+      reps: '',
+      weight: '',
+      restSeconds: 60,
+      notes: ''
     };
-    onRowsChange([...rows, newRow]);
-  }, [rows, onRowsChange]);
+    onExercisesChange([...exercises, newExercise]);
+  }, [exercises, onExercisesChange]);
 
-  const removeRow = useCallback((index: number) => {
-    const updatedRows = rows.filter((_, i) => i !== index);
-    onRowsChange(updatedRows);
-  }, [rows, onRowsChange]);
+  const removeExercise = useCallback((index: number) => {
+    const updatedExercises = exercises.filter((_, i) => i !== index);
+    onExercisesChange(updatedExercises);
+  }, [exercises, onExercisesChange]);
 
-  const duplicateRow = useCallback((index: number) => {
-    const rowToDuplicate = rows[index];
-    const newRow = { ...rowToDuplicate, round: rowToDuplicate.round + 1 };
-    const updatedRows = [...rows.slice(0, index + 1), newRow, ...rows.slice(index + 1)];
-    onRowsChange(updatedRows);
-  }, [rows, onRowsChange]);
-
-  // Group rows by block for better organization
-  const rowsByBlock = rows.reduce((groups, row, index) => {
-    const blockName = row.block;
-    if (!groups[blockName]) {
-      groups[blockName] = [];
-    }
-    groups[blockName].push({ ...row, originalIndex: index });
-    return groups;
-  }, {} as Record<string, Array<WorkoutRow & { originalIndex: number }>>);
+  const duplicateExercise = useCallback((index: number) => {
+    const exerciseToDuplicate = exercises[index];
+    const newExercise = { ...exerciseToDuplicate, id: `ex-${Date.now()}-${Math.random()}` };
+    const updatedExercises = [...exercises.slice(0, index + 1), newExercise, ...exercises.slice(index + 1)];
+    onExercisesChange(updatedExercises);
+  }, [exercises, onExercisesChange]);
 
   return (
-    <div className={`bg-white rounded-lg shadow overflow-hidden ${className}`}>
-      {/* Header with workout info */}
-      {ast && (
-        <div className="px-4 py-3 bg-gray-50 border-b">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-gray-900">
-              {ast.title || 'Parsed Workout'}
-            </h3>
-            <div className="flex items-center gap-4">
-              {ast.scoring && (
-                <span className="text-sm text-gray-600">
-                  Scoring: <span className="font-medium">{ast.scoring}</span>
-                </span>
-              )}
-              {ast.capSec && (
-                <span className="text-sm text-gray-600">
-                  Cap: <span className="font-medium">{Math.round(ast.capSec / 60)}min</span>
-                </span>
-              )}
-              {ast.confidence && (
-                <span className="text-sm text-gray-600">
-                  Confidence: <span className="font-medium">{Math.round(ast.confidence * 100)}%</span>
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div className={`bg-surface rounded-lg border border-border overflow-hidden ${className}`}>
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full">
+          <thead className="border-b border-border">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Block
+              <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                Exercise
               </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Round
+              <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                Sets
               </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Movement
+              <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                Reps
               </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Quantity
+              <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                Weight
               </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Load
+              <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                Rest (sec)
               </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Notes
               </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {Object.entries(rowsByBlock).map(([blockName, blockRows]) => (
-              <React.Fragment key={blockName}>
-                {/* Block header */}
-                <tr className="bg-blue-50">
-                  <td colSpan={7} className="px-3 py-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-900">{blockName}</span>
-                      {ast?.blocks.find(b => (b.title || `Block ${ast.blocks.indexOf(b) + 1}`) === blockName)?.mode && (
-                        <WorkoutModeIndicator 
-                          mode={ast.blocks.find(b => (b.title || `Block ${ast.blocks.indexOf(b) + 1}`) === blockName)?.mode} 
-                        />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                
-                {/* Block rows */}
-                {blockRows.map((row) => (
-                  <tr 
-                    key={row.originalIndex}
-                    className={`hover:bg-gray-50 ${selectedRows.has(row.originalIndex) ? 'bg-blue-50' : ''}`}
-                  >
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">
-                      {row.block}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      <EditableCell
-                        value={row.round.toString()}
-                        onSave={(value) => updateRow(row.originalIndex, 'round', value)}
-                        type="number"
-                      />
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <EditableCell
-                        value={row.movement}
-                        onSave={(value) => updateRow(row.originalIndex, 'movement', value)}
-                        type="movement"
-                        suggestions={movementSuggestions}
-                      />
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <EditableCell
-                        value={row.qty}
-                        onSave={(value) => updateRow(row.originalIndex, 'qty', value)}
-                        suggestions={quantitySuggestions}
-                      />
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <EditableCell
-                        value={row.load || ''}
-                        onSave={(value) => updateRow(row.originalIndex, 'load', value || undefined)}
-                        type="load"
-                        suggestions={loadSuggestions}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <EditableCell
-                        value={row.notes || ''}
-                        onSave={(value) => updateRow(row.originalIndex, 'notes', value || undefined)}
-                      />
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => duplicateRow(row.originalIndex)}
-                          className="text-blue-600 hover:text-blue-900 px-1 py-1 rounded"
-                          title="Duplicate row"
-                        >
-                          📋
-                        </button>
-                        <button
-                          onClick={() => removeRow(row.originalIndex)}
-                          className="text-red-600 hover:text-red-900 px-1 py-1 rounded"
-                          title="Delete row"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </React.Fragment>
+          <tbody className="divide-y divide-border">
+            {exercises.map((exercise, index) => (
+              <tr 
+                key={exercise.id}
+                className="hover:bg-primary/5 transition-colors"
+              >
+                <td className="px-4 py-3">
+                  <EditableCell
+                    value={exercise.name || ''}
+                    onSave={(value) => updateExercise(index, 'name', value)}
+                    type="movement"
+                    suggestions={movementSuggestions}
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <EditableCell
+                    value={exercise.sets?.toString() || '1'}
+                    onSave={(value) => updateExercise(index, 'sets', value)}
+                    type="number"
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <EditableCell
+                    value={exercise.reps || ''}
+                    onSave={(value) => updateExercise(index, 'reps', value)}
+                    suggestions={quantitySuggestions}
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <EditableCell
+                    value={exercise.weight || ''}
+                    onSave={(value) => updateExercise(index, 'weight', value)}
+                    type="load"
+                    suggestions={loadSuggestions}
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <EditableCell
+                    value={exercise.restSeconds?.toString() || '60'}
+                    onSave={(value) => updateExercise(index, 'restSeconds', value)}
+                    type="number"
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <EditableCell
+                    value={exercise.notes || ''}
+                    onSave={(value) => updateExercise(index, 'notes', value)}
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => duplicateExercise(index)}
+                      className="p-1.5 text-text-secondary hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                      title="Duplicate exercise"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => removeExercise(index)}
+                      className="p-1.5 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                      title="Delete exercise"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
 
       {/* Footer with actions */}
-      <div className="px-4 py-3 bg-gray-50 border-t flex items-center justify-between">
-        <div className="text-sm text-gray-600">
-          {rows.length} movements across {Object.keys(rowsByBlock).length} blocks
+      <div className="px-4 py-3 border-t border-border flex items-center justify-between bg-surface">
+        <div className="text-sm text-text-secondary">
+          {exercises.length} exercises
         </div>
         <div className="flex gap-2">
           <button
-            onClick={addRow}
-            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            onClick={addExercise}
+            className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/80 transition-colors flex items-center gap-1"
           >
-            Add Movement
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Exercise
           </button>
         </div>
       </div>
-
-      {/* Workout summary */}
-      {ast && (
-        <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-600">
-          {ast.blocks.map((block, i) => (
-            <div key={i} className="flex items-center gap-4">
-              <span>{block.title || `Block ${i + 1}`}</span>
-              {block.mode && (
-                <span>{block.mode.kind} {block.mode.rounds ? `${block.mode.rounds}x` : ''}</span>
-              )}
-              {block.sequence.length > 0 && (
-                <span>{block.sequence.length} movements</span>
-              )}
-            </div>
-          )).slice(0, 3)}
-          {ast.blocks.length > 3 && <div>...and {ast.blocks.length - 3} more blocks</div>}
-        </div>
-      )}
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { MobileNav } from "@/components/layout/mobile-nav"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+// import { extractWorkoutFromImage, ParsedWorkout } from "@/lib/extractWorkoutFromImage" // Temporarily disabled
 import { 
   Plus, 
   Search, 
@@ -19,7 +20,10 @@ import {
   MoreHorizontal,
   Play,
   CheckCircle,
-  CalendarDays
+  CalendarDays,
+  Camera,
+  Upload,
+  Loader2
 } from "lucide-react"
 
 export default function LibraryPage() {
@@ -29,6 +33,8 @@ export default function LibraryPage() {
   const [workouts, setWorkouts] = useState<any[]>([])
   const [showDatePicker, setShowDatePicker] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [isProcessingImage, setIsProcessingImage] = useState(false)
+  const [showOCRResult, setShowOCRResult] = useState<any | null>(null)
 
   useEffect(() => {
     // Load workouts from localStorage
@@ -57,6 +63,54 @@ export default function LibraryPage() {
     alert(`Workout marked as completed on ${selectedDate}!`)
   }
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsProcessingImage(true)
+    try {
+      // const result = await extractWorkoutFromImage(file, { 
+      //   preferServer: false, // Use client-side Tesseract.js by default
+      //   lang: 'eng'
+      // })
+      // setShowOCRResult(result)
+      alert('Image processing temporarily disabled')
+    } catch (error) {
+      console.error('OCR processing failed:', error)
+      alert('Failed to process image. Please try again.')
+    } finally {
+      setIsProcessingImage(false)
+    }
+  }
+
+  const handleSaveOCRWorkout = () => {
+    if (!showOCRResult) return
+
+    const workout = {
+      id: Date.now().toString(),
+      title: showOCRResult.title || 'OCR Workout',
+      content: showOCRResult.rawText,
+      createdAt: new Date().toISOString(),
+      parsedData: {
+        style: showOCRResult.style,
+        duration_min: showOCRResult.duration_min,
+        interval_sec: showOCRResult.interval_sec,
+        rounds: showOCRResult.rounds,
+        exercises: showOCRResult.sections.flatMap((section: any) => section.exercises),
+        equipment: [], // Could be derived from exercises
+        ocr: showOCRResult.ocr,
+        warnings: showOCRResult.warnings
+      }
+    }
+
+    const existingWorkouts = JSON.parse(localStorage.getItem('workouts') || '[]')
+    existingWorkouts.push(workout)
+    localStorage.setItem('workouts', JSON.stringify(existingWorkouts))
+    setWorkouts(existingWorkouts)
+    setShowOCRResult(null)
+    alert('Workout saved successfully!')
+  }
+
   if (!isAuthenticated) {
     return <Login />
   }
@@ -72,7 +126,7 @@ export default function LibraryPage() {
 
   // Transform saved workouts to display format
   const displayWorkouts = workouts.map(workout => {
-    const contentLines = workout.content.split('\n').filter(line => line.trim())
+    const contentLines = workout.content.split('\n').filter((line: string) => line.trim())
     const exercises = workout.parsedData?.exercises || []
     const equipmentTags = workout.parsedData?.equipment || []
     
@@ -84,7 +138,7 @@ export default function LibraryPage() {
       exercises: `${exercises.length} exercises`,
       duration: "0 min", // Could be calculated from parsed data
       tags: equipmentTags.slice(0, 2), // Show first 2 equipment tags
-      content: contentLines.slice(0, 3).map(line => line.length > 50 ? line.substring(0, 50) + '...' : line)
+      content: contentLines.slice(0, 3).map((line: string) => line.length > 50 ? line.substring(0, 50) + '...' : line)
     }
   })
 
@@ -124,12 +178,36 @@ export default function LibraryPage() {
                 Your saved workouts and routines
               </p>
             </div>
-            <Link href="/add">
-              <Button className="flex items-center space-x-2">
-                <Plus className="h-4 w-4" />
-                <span>Add Workout</span>
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+              <Link href="/add">
+                <Button className="flex items-center space-x-2">
+                  <Plus className="h-4 w-4" />
+                  <span>Add Workout</span>
+                </Button>
+              </Link>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={isProcessingImage}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  id="image-upload"
+                />
+                <Button 
+                  variant="outline" 
+                  className="flex items-center space-x-2"
+                  disabled={isProcessingImage}
+                >
+                  {isProcessingImage ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
+                  <span>{isProcessingImage ? 'Processing...' : 'Scan Image'}</span>
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Search and Filter Bar */}
@@ -167,6 +245,118 @@ export default function LibraryPage() {
               </Button>
             ))}
           </div>
+
+          {/* OCR Result Modal */}
+          {showOCRResult && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold">OCR Results</h2>
+                    <Button variant="ghost" onClick={() => setShowOCRResult(null)}>
+                      ×
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Workout Info */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="font-semibold mb-2">Workout Details</h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium">Title:</span> {showOCRResult.title || 'Untitled'}
+                        </div>
+                        <div>
+                          <span className="font-medium">Style:</span> {showOCRResult.style || 'Unknown'}
+                        </div>
+                        {showOCRResult.duration_min && (
+                          <div>
+                            <span className="font-medium">Duration:</span> {showOCRResult.duration_min} min
+                          </div>
+                        )}
+                        {showOCRResult.rounds && (
+                          <div>
+                            <span className="font-medium">Rounds:</span> {showOCRResult.rounds}
+                          </div>
+                        )}
+                        <div>
+                          <span className="font-medium">OCR Engine:</span> {showOCRResult.ocr.engine}
+                        </div>
+                        {showOCRResult.ocr.confidence && (
+                          <div>
+                            <span className="font-medium">Confidence:</span> {showOCRResult.ocr.confidence}%
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Exercises */}
+                    {showOCRResult.sections.map((section: any, sectionIndex: number) => (
+                      <div key={sectionIndex} className="bg-gray-50 p-4 rounded-lg">
+                        {section.label && (
+                          <h4 className="font-semibold mb-2">{section.label}</h4>
+                        )}
+                        <div className="space-y-2">
+                          {section.exercises.map((exercise: any, exerciseIndex: number) => (
+                            <div key={exerciseIndex} className="bg-white p-3 rounded border text-sm">
+                              <div className="font-medium">{exercise.name}</div>
+                              <div className="text-gray-600 mt-1">
+                                {exercise.sets && exercise.reps && (
+                                  <span>{exercise.sets}x{exercise.reps} • </span>
+                                )}
+                                {exercise.distance_m && (
+                                  <span>{exercise.distance_m}m • </span>
+                                )}
+                                {exercise.weight_kg && (
+                                  <span>{exercise.weight_kg}kg • </span>
+                                )}
+                                {exercise.calories && (
+                                  <span>{exercise.calories} cal • </span>
+                                )}
+                                {exercise.time_sec && (
+                                  <span>{Math.floor(exercise.time_sec / 60)}:{(exercise.time_sec % 60).toString().padStart(2, '0')}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Raw Text */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-semibold mb-2">Raw OCR Text</h4>
+                      <pre className="text-sm whitespace-pre-wrap text-gray-600">
+                        {showOCRResult.rawText}
+                      </pre>
+                    </div>
+
+                    {/* Warnings */}
+                    {showOCRResult.warnings.length > 0 && (
+                      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                        <h4 className="font-semibold mb-2">Warnings</h4>
+                        <ul className="list-disc list-inside text-sm">
+                          {showOCRResult.warnings.map((warning: string, index: number) => (
+                            <li key={index}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-4">
+                      <Button onClick={handleSaveOCRWorkout} className="flex-1">
+                        Save Workout
+                      </Button>
+                      <Button variant="outline" onClick={() => setShowOCRResult(null)} className="flex-1">
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Workout Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -211,7 +401,7 @@ export default function LibraryPage() {
                   {/* Tags */}
                   {workout.tags.length > 0 && (
                     <div className="flex gap-2 mb-4">
-                      {workout.tags.map((tag, index) => (
+                      {workout.tags.map((tag: string, index: number) => (
                         <span 
                           key={index}
                           className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-md"
@@ -224,7 +414,7 @@ export default function LibraryPage() {
 
                   {/* Workout Preview */}
                   <div className="space-y-1 mb-6">
-                    {workout.content.map((line, index) => (
+                    {workout.content.map((line: string, index: number) => (
                       <p key={index} className="text-sm text-text-secondary line-clamp-1">
                         {index + 1}. {line}
                       </p>

@@ -1,60 +1,78 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
-import Link from "next/link"
+import { useRouter, useParams } from "next/navigation"
 import { useAuthStore } from "@/store"
 import { Login } from "@/components/auth/login"
 import { Header } from "@/components/layout/header"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { 
-  Play,
-  Edit,
-  ExternalLink,
-  ArrowLeft,
+  ArrowLeft, 
   Clock,
-  Dumbbell,
-  Calendar,
+  Target,
   User,
-  Instagram
+  Brain,
+  ExternalLink,
+  Edit,
+  Play,
+  AlertCircle
 } from "lucide-react"
+
+interface Exercise {
+  id: string
+  name: string
+  sets: number
+  reps: string | number
+  weight?: string
+  restSeconds?: number
+  notes?: string
+}
 
 interface Workout {
   id: string
   title: string
+  description: string
+  exercises: Exercise[]
   content: string
-  parsedData: any
-  author: any
+  llmData?: any
+  author?: any
   createdAt: string
+  updatedAt?: string
   source: string
   type: string
+  totalDuration: number
+  difficulty: string
+  tags: string[]
 }
 
-export default function WorkoutDetailPage() {
+export default function WorkoutViewPage() {
   const { isAuthenticated } = useAuthStore()
-  const params = useParams()
   const router = useRouter()
+  const params = useParams()
   const [workout, setWorkout] = useState<Workout | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!params.id) return
-
-    // Load workout from localStorage
-    const savedWorkouts = JSON.parse(localStorage.getItem('workouts') || '[]')
-    const foundWorkout = savedWorkouts.find((w: Workout) => w.id === params.id)
-    
-    if (foundWorkout) {
-      setWorkout(foundWorkout)
-    } else {
-      // Workout not found, redirect to library
-      router.push('/library')
+    const workoutId = params?.id as string
+    if (workoutId) {
+      loadWorkout(workoutId)
     }
-    setLoading(false)
-  }, [params.id, router])
+  }, [params?.id])
+
+  const loadWorkout = (workoutId: string) => {
+    try {
+      const workouts = JSON.parse(localStorage.getItem('workouts') || '[]')
+      const found = workouts.find((w: Workout) => w.id === workoutId)
+      setWorkout(found || null)
+    } catch (error) {
+      console.error('Error loading workout:', error)
+      setWorkout(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (!isAuthenticated) {
     return <Login />
@@ -64,15 +82,9 @@ export default function WorkoutDetailPage() {
     return (
       <>
         <Header />
-        <main className="min-h-screen pb-20 md:pb-8 flex justify-center">
-          <div className="w-full max-w-4xl mx-auto px-4 py-8">
-            <div className="animate-pulse">
-              <div className="h-8 bg-gray-300 rounded mb-4"></div>
-              <div className="h-64 bg-gray-300 rounded"></div>
-            </div>
-          </div>
+        <main className="min-h-screen flex items-center justify-center">
+          <div className="animate-pulse text-text-secondary">Loading workout...</div>
         </main>
-        <MobileNav />
       </>
     )
   }
@@ -81,159 +93,227 @@ export default function WorkoutDetailPage() {
     return (
       <>
         <Header />
-        <main className="min-h-screen pb-20 md:pb-8 flex justify-center">
-          <div className="w-full max-w-4xl mx-auto px-4 py-8">
-            <div className="text-center py-12">
-              <h2 className="text-2xl font-bold text-text-primary mb-2">Workout not found</h2>
-              <p className="text-text-secondary mb-4">The workout you're looking for doesn't exist.</p>
-              <Link href="/library">
-                <Button>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Library
-                </Button>
-              </Link>
-            </div>
+        <main className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-text-primary mb-2">
+              Workout Not Found
+            </h2>
+            <p className="text-text-secondary mb-4">
+              The workout you're looking for doesn't exist or has been deleted.
+            </p>
+            <Button onClick={() => router.push('/library')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Library
+            </Button>
           </div>
         </main>
-        <MobileNav />
       </>
     )
   }
 
-  const contentLines = workout.content.split('\n').filter(line => line.trim())
-  const exercises = workout.parsedData?.exercises || []
-  const equipmentTags = workout.parsedData?.equipment || []
+  const formatDuration = (minutes: number) => {
+    if (minutes < 60) return `${minutes} min`
+    const hours = Math.floor(minutes / 60)
+    const mins = minutes % 60
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+  }
 
   return (
     <>
       <Header />
-      <main className="min-h-screen pb-20 md:pb-8 flex justify-center">
-        <div className="w-full max-w-4xl mx-auto px-4 py-8">
-          {/* Back Button */}
-          <Link href="/library" className="inline-flex items-center text-text-secondary hover:text-text-primary mb-6">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Library
-          </Link>
-
-          {/* Workout Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-text-primary mb-4">{workout.title}</h1>
-            
-            {/* Workout Meta Info */}
-            <div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary mb-4">
-              <div className="flex items-center">
-                <Calendar className="h-4 w-4 mr-1" />
-                {new Date(workout.createdAt).toLocaleDateString()}
-              </div>
-              <div className="flex items-center">
-                <Dumbbell className="h-4 w-4 mr-1" />
-                {exercises.length} exercises
-              </div>
-              <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-1" />
-                0 min
-              </div>
-              {workout.author && (
-                <div className="flex items-center">
-                  <User className="h-4 w-4 mr-1" />
-                  @{workout.author.username}
-                </div>
-              )}
-            </div>
-
-            {/* Equipment Tags */}
-            {equipmentTags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-6">
-                {equipmentTags.map((tag: string, index: number) => (
-                  <Badge key={index} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3">
-              <Button size="lg" disabled className="flex items-center space-x-2 opacity-60">
-                <Play className="h-4 w-4" />
-                <span>Start Workout (Coming Soon)</span>
-              </Button>
-              <Link href={`/workout/${workout.id}/edit`}>
-                <Button variant="outline" size="lg" className="flex items-center space-x-2">
-                  <Edit className="h-4 w-4" />
-                  <span>Edit Workout</span>
-                </Button>
-              </Link>
-              {workout.source !== 'manual' && workout.source && (
-                <a 
-                  href={workout.source} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex"
+      <main className="min-h-screen pb-20 md:pb-8">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/library')}
                 >
-                  <Button variant="outline" size="lg" className="flex items-center space-x-2">
-                    <Instagram className="h-4 w-4" />
-                    <span>View Original</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </a>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold text-text-primary">
+                    {workout.title}
+                  </h1>
+                  <p className="text-sm text-text-secondary">
+                    {workout.description}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                <Button size="sm" disabled className="opacity-50 cursor-not-allowed">
+                  <Play className="h-4 w-4 mr-2" />
+                  Coming Soon
+                </Button>
+              </div>
+            </div>
+
+            {/* Workout Meta */}
+            <div className="flex flex-wrap items-center gap-4 mb-4">
+              <div className="flex items-center space-x-1 text-text-secondary">
+                <Clock className="h-4 w-4" />
+                <span className="text-sm">{formatDuration(workout.totalDuration)}</span>
+              </div>
+              
+              <div className="flex items-center space-x-1 text-text-secondary">
+                <Target className="h-4 w-4" />
+                <span className="text-sm capitalize">{workout.difficulty}</span>
+              </div>
+              
+              {workout.author && (
+                <div className="flex items-center space-x-1 text-text-secondary">
+                  <User className="h-4 w-4" />
+                  <span className="text-sm">@{workout.author.username}</span>
+                </div>
+              )}
+              
+              {workout.llmData?.usedLLM && (
+                <div className="flex items-center space-x-1 text-primary">
+                  <Brain className="h-4 w-4" />
+                  <span className="text-sm">AI Enhanced</span>
+                </div>
               )}
             </div>
-          </div>
 
-          {/* Workout Content */}
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* Full Content */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Dumbbell className="h-5 w-5 mr-2" />
-                  Workout Content
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {contentLines.map((line, index) => (
-                    <p key={index} className="text-text-secondary">
-                      {line}
-                    </p>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Parsed Exercises */}
-            {exercises.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Play className="h-5 w-5 mr-2" />
-                    Parsed Exercises ({exercises.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {exercises.map((exercise: any, index: number) => (
-                      <div key={index} className="border-l-2 border-primary pl-4">
-                        <h4 className="font-medium text-text-primary">{exercise.name}</h4>
-                        <div className="text-sm text-text-secondary">
-                          {exercise.sets && exercise.reps && (
-                            <span>{exercise.sets} sets × {exercise.reps} reps</span>
-                          )}
-                          {exercise.time && (
-                            <span className="ml-2">• {exercise.time}</span>
-                          )}
-                          {exercise.weight && (
-                            <span className="ml-2">• {exercise.weight}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+            {/* AI Processing Info */}
+            {workout.llmData && (
+              <Card className="mb-6">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center space-x-2">
+                    <Brain className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-sm">AI Analysis</CardTitle>
                   </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {workout.llmData.summary && (
+                    <p className="text-sm text-text-secondary mb-3">
+                      {workout.llmData.summary}
+                    </p>
+                  )}
+                  
+                  {workout.llmData.breakdown && (
+                    <div className="text-xs text-text-secondary space-y-1">
+                      {workout.llmData.breakdown.map((item: string, idx: number) => (
+                        <div key={idx}>• {item}</div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
           </div>
+
+          {/* Exercises */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Exercises ({workout.exercises.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {workout.exercises.map((exercise, idx) => (
+                  <div 
+                    key={exercise.id} 
+                    className="flex items-center justify-between p-4 bg-surface rounded-lg border border-border"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-text-primary capitalize">
+                          {exercise.name}
+                        </h3>
+                        {exercise.notes && (
+                          <p className="text-xs text-text-secondary mt-1">
+                            {exercise.notes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-6 text-sm text-text-secondary">
+                      {exercise.sets > 1 && (
+                        <div className="text-center">
+                          <div className="font-medium text-text-primary">{exercise.sets}</div>
+                          <div className="text-xs">sets</div>
+                        </div>
+                      )}
+                      
+                      {exercise.reps && (
+                        <div className="text-center">
+                          <div className="font-medium text-text-primary">{exercise.reps}</div>
+                          <div className="text-xs">reps</div>
+                        </div>
+                      )}
+                      
+                      {exercise.weight && (
+                        <div className="text-center">
+                          <div className="font-medium text-text-primary">{exercise.weight}</div>
+                          <div className="text-xs">weight</div>
+                        </div>
+                      )}
+                      
+                      {exercise.restSeconds && exercise.restSeconds > 0 && (
+                        <div className="text-center">
+                          <div className="font-medium text-text-primary">{exercise.restSeconds}s</div>
+                          <div className="text-xs">rest</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Source Info */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="text-sm">Source Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-text-secondary mb-1">Imported from</div>
+                  <div className="text-text-primary">
+                    {workout.type === 'url' ? 'Instagram' : workout.type === 'manual' ? 'Manual Entry' : 'Image Upload'}
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="text-text-secondary mb-1">Created</div>
+                  <div className="text-text-primary">
+                    {new Date(workout.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+                
+                {workout.source !== 'manual' && (
+                  <div className="md:col-span-2">
+                    <div className="text-text-secondary mb-1">Source URL</div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-text-primary text-xs font-mono truncate">
+                        {workout.source}
+                      </span>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={workout.source} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
       <MobileNav />
